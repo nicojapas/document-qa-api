@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, UploadFile, status, HTTPException
 
 from app.schemas.document import DocumentResponse
 from app.services.documents import DocumentService
+from app.utils.file_parser import Parser
 
 
 router = APIRouter()
@@ -26,22 +27,30 @@ async def upload_document(
     # 1. Validate file extension
     allowed_extensions = ["pdf", "txt", "docx"]
     extension = file.filename.split(".")[-1].lower()
+    content = await file.read()
     if extension not in allowed_extensions:
         raise HTTPException(
             status_code=400, 
             detail=f"Extension '{extension}' not allowed. Use PDF, TXT, or DOCX."
         )
 
-    # 2. CALL SERVICE
-    # 2.1. Read file size (useful for metadata)
-    content = await file.read()
-    file_size = len(content)
-    
-    # 2.2. Save to MongoDB via Service
+    # 2. Save document's metadata to MongoDB via Service
     doc = await DocumentService.create_document(
         filename=file.filename,
         content_type=file.content_type,
-        size=file_size
+        size=len(content),
     )
+
+    # 3. Parse content
+    match extension:
+        case "pdf":
+            raw_text = Parser.from_pdf(content)
+        case "txt":
+            raw_text = Parser.from_txt(content)
+        case "docx":
+            raw_text = Parser.from_docx(content)
+
+    # 4. Split the raw text into chunks and store them in MongoDB referencing their parent's id
+    await DocumentService.create_chunks(raw_text=raw_text, parent_id=doc["_id"])
     
     return doc

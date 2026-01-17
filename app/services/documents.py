@@ -1,6 +1,7 @@
 from app.db.session import db
-from app.schemas.document import DocumentDB
 from datetime import datetime
+
+from app.utils.text_splitter import clean_text, split_text
 
 class DocumentService:
     @staticmethod
@@ -19,3 +20,18 @@ class DocumentService:
         doc_data["_id"] = str(result.inserted_id)
 
         return doc_data
+
+    @staticmethod
+    async def create_chunks(raw_text: str, parent_id: str):
+        chunks = split_text(raw_text)
+        chunk_documents = [
+            {
+                "parent_doc_id": parent_id,
+                "index": index,
+                "text": clean_text(text),
+                "create_at": datetime.now()
+            }
+            for index, text in enumerate(chunks)
+        ]
+        if chunk_documents:
+            await db.chunks.insert_many(chunk_documents)

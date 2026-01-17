@@ -2,3 +2,6 @@ fastapi[standard]==0.112.0
 uvicorn
 pydantic-settings
 pymongo[srv]==4.16
+pypdf==6.6.0
+langchain==1.2.6
+langchain_text_splitters==1.1.0
