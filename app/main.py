@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from app.api.v1.api import api_router
+from app.core.config import settings
 
 app = FastAPI()
 
 
 app = FastAPI(
-    title="Document QA API",
-    description="AI-powered RAG API with FastAPI and MongoDB",
-    version="1.0.0"
+    title=settings.PROJECT_NAME,
+    description=settings.DESCRIPTION,
+    version=settings.VERSION
 )
 
 # Include the aggregate router

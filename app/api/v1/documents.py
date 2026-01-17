@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, status, HTTPException
 
 from app.schemas.document import DocumentResponse
+from app.services.documents import DocumentService
 
 
 router = APIRouter()
@@ -31,16 +32,16 @@ async def upload_document(
             detail=f"Extension '{extension}' not allowed. Use PDF, TXT, or DOCX."
         )
 
-    # 2. CALL SERVICE (Point 3)
-    # For now, we simulate a successful database record
-    # Later, you will do: doc = await DocumentService.create(file)
-    mock_response = {
-        "_id": "65a6f1...", # Simulating MongoDB ID
-        "filename": file.filename,
-        "content_type": file.content_type,
-        "size": 0, # We'd calculate this
-        "status": "processing",
-        "created_at": "2026-01-16T12:00:00"
-    }
+    # 2. CALL SERVICE
+    # 2.1. Read file size (useful for metadata)
+    content = await file.read()
+    file_size = len(content)
     
-    return mock_response
+    # 2.2. Save to MongoDB via Service
+    doc = await DocumentService.create_document(
+        filename=file.filename,
+        content_type=file.content_type,
+        size=file_size
+    )
+    
+    return doc
