@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     # AI Configuration (OpenAI, Anthropic, etc.)
     OPENAI_API_KEY: str = Field(default="sk-placeholder")
+    GEMINI_AI_API_KEY: str = Field(default="xx-xxx")
+    
 
     # App Config
     model_config = SettingsConfigDict(

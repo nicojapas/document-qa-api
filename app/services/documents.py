@@ -1,7 +1,8 @@
 from app.db.session import db
 from datetime import datetime
 
-from app.utils.text_splitter import clean_text, split_text
+from app.services.embeddings import EmbeddingService
+from app.utils.text_splitter import split_and_process_text
 
 class DocumentService:
     @staticmethod
@@ -23,15 +24,21 @@ class DocumentService:
 
     @staticmethod
     async def create_chunks(raw_text: str, parent_id: str):
-        chunks = split_text(raw_text)
+        chunks = split_and_process_text(raw_text)
+        
+        # Generate all embeddings in efficient batches
+        vectors = await EmbeddingService.generate_embeddings(chunks)
+
         chunk_documents = [
             {
                 "parent_doc_id": parent_id,
                 "index": index,
-                "text": clean_text(text),
+                "text": text,
+                "embedding": vectors[index],
                 "create_at": datetime.now()
             }
             for index, text in enumerate(chunks)
         ]
+        
         if chunk_documents:
             await db.chunks.insert_many(chunk_documents)
