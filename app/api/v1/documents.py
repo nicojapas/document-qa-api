@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, UploadFile, status, HTTPException
 
-from app.schemas.document import DocumentResponse
+from app.schemas.document import DocumentInDB, DocumentResponse
 from app.services.documents import DocumentService
 from app.utils.file_parser import Parser
 
@@ -20,7 +20,7 @@ async def list_my_documents():
 async def upload_document(
     file: UploadFile = File(...),
     # current_user = Depends(get_current_user) # Placeholder for auth
-):
+) -> DocumentResponse:
     """
     Upload a document, save metadata to MongoDB, and start the AI embedding process.
     """
@@ -51,6 +51,11 @@ async def upload_document(
             raw_text = Parser.from_docx(content)
 
     # 4. Split the raw text into chunks and store them in MongoDB referencing their parent's id
-    await DocumentService.create_chunks(raw_text=raw_text, parent_id=doc["_id"])
+    await DocumentService.create_chunks(raw_text=raw_text, parent_id=doc.id)
     
-    return doc
+    return DocumentResponse(
+        id=doc.id,
+        filename=doc.filename,
+        status=doc.status,
+        created_at=doc.created_at,
+    )

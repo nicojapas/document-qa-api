@@ -1,26 +1,28 @@
 from app.db.session import db
 from datetime import datetime
 
+from app.schemas.document import DocumentInDB
 from app.services.embeddings import EmbeddingService
 from app.utils.text_splitter import split_and_process_text
 
 class DocumentService:
     @staticmethod
-    async def create_document(filename: str, content_type: str, size: int):
-        doc_data = {
-            "filename": filename,
-            "content_type": content_type,
-            "size": size,
-            "status": "processing",
-            "created_at": datetime.now()
-        }
+    async def create_document(filename: str, content_type: str, size: int) -> DocumentInDB:
+        doc = DocumentInDB(
+            filename=filename,
+            content_type=content_type,
+            size=size,
+            status="processing",
+            created_at=datetime.now(),
+            id=None
+        )
         # Insert into MongoDB
-        result = await db.documents.insert_one(doc_data)
+        result = await db.documents.insert_one(doc.model_dump())
         
         # Return the created doc with its new _id
-        doc_data["_id"] = str(result.inserted_id)
+        doc.id = str(result.inserted_id)
 
-        return doc_data
+        return doc
 
     @staticmethod
     async def create_chunks(raw_text: str, parent_id: str):
