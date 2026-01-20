@@ -1,45 +1,160 @@
-document-qa-api/
-├── app/
-│   ├── main.py              # App entry point, middleware, & router inclusion
-│   ├── api/
-│   │   ├── deps.py          # Dependencies (get_db, get_current_user, etc.)
-│   │   └── v1/
-│   │       ├── api.py       # Global v1 router (includes all sub-routers)
-│   │       ├── auth.py      # Login, registration, token endpoints
-│   │       ├── documents.py # File upload, list, delete endpoints
-│   │       └── qa.py        # Question-answering & chat history endpoints
-│   ├── core/
-│   │   ├── config.py        # Pydantic Settings (env vars, secrets)
-│   │   ├── security.py      # JWT token logic & password hashing
-│   │   └── logging.py       # Custom logging for AI tokens/latency
-│   ├── db/
-│   │   ├── session.py       # MongoDB client (Motor) initialization
-│   │   └── indexes.py       # Script to setup Vector Search & TTL indexes
-│   ├── models/              # MongoDB (Motor/Beanie) Domain Models
-│   │   ├── user.py
-│   │   └── document.py
-│   ├── schemas/             # Pydantic Data Models (Input/Output validation)
-│   │   ├── auth.py          # Token & UserCreate schemas
-│   │   ├── document.py      # DocumentResponse & Metadata schemas
-│   │   └── qa.py            # QuestionRequest & AnswerResponse schemas
-│   ├── services/            # Business Logic & AI Orchestration
-│   │   ├── auth.py          # User management logic
-│   │   ├── documents.py     # Logic for saving file metadata to DB
-│   │   ├── embeddings.py    # OpenAI/HuggingFace embedding logic
-│   │   ├── vector_store.py  # MongoDB Atlas Vector Search queries
-│   │   └── llm.py           # RAG logic (Prompt engineering + LLM call)
-│   └── utils/
-│       ├── file_parser.py   # Extracting text from PDF/TXT/DOCX
-│       └── text_splitter.py # Chunking logic (RecursiveCharacterSplitter)
+# Document QA API
+
+## 🎯 Purpose
+
+A cloud-native backend service built with **FastAPI** that allows users to upload documents (PDF/TXT/DOCX), process their contents into semantic embeddings, and answer natural language questions grounded in those documents using large language models (LLMs) and vector similarity search.
+
+This project demonstrates a real-world retrieval-augmented question-answering (RAG) backend, with authentication, document ingestion, vector search, and AI integration.
+
+
+## 🛠 Tech Stack
+
+- FastAPI (async REST API, OpenAPI)
+- Python 3.14+
+- MongoDB (text, metadata & ownership)
+- FAISS (vector similarity search)
+- OpenAI API (embeddings & LLM)
+- JWT authentication
+- Pytest
+
+
+## 🚀 Features
+
+- Authenticated REST API (JWT)
+- Document upload and processing (PDF, TXT, DOCX)
+- Text extraction and chunking
+- Embedding generation with OpenAI (or other providers)
+- Vector search for semantic retrieval
+- Question answering via context-grounded LLM calls
+- Async FastAPI endpoints and dependency injection
+- Clean architecture with services and schemas
+- Fully documented via automatic OpenAPI / Swagger
+
+
+## 🧠 Architecture Overview
+
+User
+↓ (HTTP)
+FastAPI API
+├── Auth (JWT)
+├── Documents (upload / list / delete)
+├── QA (question → answer)
 │
-├── tests/                   # Pytest suite
-│   ├── conftest.py          # Test database setup
-│   ├── test_api/            # Route tests
-│   └── test_services/       # Logic & AI pipeline tests
-│
-├── .env.example             # Template for API keys (never commit .env)
-├── .gitignore
-├── Dockerfile               # For future-proofing deployment
-├── requirements.txt         # Cleaned list of dependencies
-├── README.md                # Documentation & Architecture Diagram
-└── pyproject.toml           # Build system configuration
+├── Text Parser (pdf/txt/docx)
+├── Chunker
+├── Embeddings (OpenAI / LLM provider)
+└── Vector Search (FAISS or other store)
+↳ retrieve relevant chunks
+↳ send context + question to LLM for answer
+
+
+## 📦 Installation
+
+> Python 3.10+ recommended
+
+```bash
+git clone https://github.com/nicojapas/document-qa-api.git
+cd document-qa-api
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Set your environment variables:
+
+GEMINI_AI_API_KEY (or other LLM/embedding provider)
+MONGODB_URI
+
+
+📌 Running Locally
+Start the API with fastapi:
+
+fastapi dev app/main.py
+
+Visit the API docs: http://127.0.0.1:8000/docs
+
+Automatic OpenAPI/Swagger makes testing the endpoints easy.
+
+
+🧩 API Endpoints
+🔑 Auth
+Endpoint	Method	Description
+/api/v1/auth/register	POST	Register new user
+/api/v1/auth/login	POST	Login and receive JWT
+
+📄 Documents
+Endpoint	Method	Description
+/api/v1/documents	POST	Upload & process document
+/api/v1/documents	GET	List user documents
+/api/v1/documents/{id}	DELETE	Delete document
+
+Uploaded files are parsed into text, chunked, and indexed for semantic retrieval.
+
+🧠 Question Answering
+Endpoint	Method	Description
+/api/v1/qa	POST	Ask a question about a document
+
+Example request:
+
+{
+  "document_id": "abc123",
+  "question": "What are the key findings?"
+}
+Answer responses are generated by retrieving relevant chunks and passing them with the question to the LLM.
+
+
+🧪 Tests
+Basic Pytest coverage exists for:
+
+API routes
+
+Auth logic
+
+Document ingestion
+
+QA pipeline
+
+🧠 How It Works (simplified)
+
+User uploads a PDF/TXT/DOCX
+
+Backend extracts text and splits into chunks
+
+For each chunk, an embedding is generated
+
+Vectors are indexed for semantic similarity matching
+
+User asks a question
+
+The backend:
+
+Embeds the question
+
+Retrieves nearest-neighbor text chunks
+
+Passes question + context to the LLM
+
+Returns answer
+
+This approach uses retrieval-augmented generation (RAG) to make LLM answers factual and grounded. 
+
+
+🧠 Design Decisions
+Storage
+
+MongoDB stores text chunks, metadata and ownership
+
+Embeddings are stored in a vector index (e.g., FAISS, not in MongoDB itself)
+
+Models
+
+LLM calls are abstracted so you can switch providers later
+
+
+💬 Feedback & Contribution
+This is a personal project; contributions are welcome via issues or PRs!
+
+📄 License
+MIT License
+© 2026 Nicolás Japas
