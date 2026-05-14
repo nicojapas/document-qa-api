@@ -12,7 +12,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://nicojapas.github.io/document-qa-fe/"],
+    allow_origins=["https://nicojapas.github.io"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
