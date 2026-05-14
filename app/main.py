@@ -24,3 +24,7 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/")
 async def root():
     return {"message": "Welcome to Document QA API. Visit /docs for Swagger."}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
