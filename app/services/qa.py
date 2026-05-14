@@ -52,7 +52,7 @@ class QAService:
                     }
                 }
             ]
-            cursor = db.chunks.aggregate(pipeline)
+            cursor = await db.chunks.aggregate(pipeline)
             results = await cursor.to_list(length=3)
             logger.info(f"Query '{q[:50]}...' returned {len(results)} results")
 
