@@ -1,7 +1,10 @@
+import logging
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.core.config import settings
 from app.db.session import db
 from app.services.embeddings import EmbeddingService
+
+logger = logging.getLogger(__name__)
 
 class QAService:
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=settings.GEMINI_AI_API_KEY)
@@ -25,17 +28,20 @@ class QAService:
 
     @classmethod
     async def get_relevant_context(cls, queries: list[str], doc_id: str) -> list[list[str]]:
+        logger.info(f"Searching for doc_id: {doc_id}")
+        logger.info(f"Number of queries: {len(queries)}")
         all_context = []
-        
+
         for q in queries:
             # 2. Embed each variation
             query_vector = await EmbeddingService.generate_embeddings([q], is_query=True)
-            
+            logger.info(f"Generated embedding with {len(query_vector)} dimensions")
+
             # 3. Search MongoDB for each variation
             pipeline = [
                 {
                     "$vectorSearch": {
-                        "index": "vector_index", 
+                        "index": "vector_index",
                         "path": "embedding",
                         "queryVector": query_vector,
                         "numCandidates": 50,
@@ -46,10 +52,12 @@ class QAService:
                     }
                 }
             ]
-            cursor = await db.chunks.aggregate(pipeline)
+            cursor = db.chunks.aggregate(pipeline)
             results = await cursor.to_list(length=3)
+            logger.info(f"Query '{q[:50]}...' returned {len(results)} results")
 
             all_context.extend([res["text"] for res in results])
-            
+
         # 4. Remove duplicates (different queries might find the same chunk)
+        logger.info(f"Total unique context chunks: {len(set(all_context))}")
         return list(set(all_context))
