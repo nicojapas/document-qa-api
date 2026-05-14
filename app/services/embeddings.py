@@ -4,7 +4,7 @@ from app.core.config import settings
 
 class EmbeddingService:
     _base_embeddings = GoogleGenerativeAIEmbeddings(
-        model="text-embedding-004",
+        model="gemini-embedding-001",
         api_key=settings.GEMINI_AI_API_KEY,
         max_retries=0,  # disable retry to avoid exhausting free tier API resources
     )
