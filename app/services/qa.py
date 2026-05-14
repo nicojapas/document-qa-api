@@ -28,14 +28,14 @@ class QAService:
 
     @classmethod
     async def get_relevant_context(cls, queries: list[str], doc_id: str) -> list[list[str]]:
-        logger.info(f"Searching for doc_id: {doc_id}")
-        logger.info(f"Number of queries: {len(queries)}")
+        print(f"[DEBUG] Searching for doc_id: {doc_id}")
+        print(f"[DEBUG] Number of queries: {len(queries)}")
         all_context = []
 
         for q in queries:
             # 2. Embed each variation
             query_vector = await EmbeddingService.generate_embeddings([q], is_query=True)
-            logger.info(f"Generated embedding with {len(query_vector)} dimensions")
+            print(f"[DEBUG] Generated embedding with {len(query_vector)} dimensions")
 
             # 3. Search MongoDB for each variation
             pipeline = [
@@ -54,10 +54,10 @@ class QAService:
             ]
             cursor = await db.chunks.aggregate(pipeline)
             results = await cursor.to_list(length=3)
-            logger.info(f"Query '{q[:50]}...' returned {len(results)} results")
+            print(f"[DEBUG] Query '{q[:50]}...' returned {len(results)} results")
 
             all_context.extend([res["text"] for res in results])
 
         # 4. Remove duplicates (different queries might find the same chunk)
-        logger.info(f"Total unique context chunks: {len(set(all_context))}")
+        print(f"[DEBUG] Total unique context chunks: {len(set(all_context))}")
         return list(set(all_context))
