@@ -19,7 +19,7 @@ async def ask(payload: QuestionRequest):
     context = await QAService.get_relevant_context(queries, payload.document_id)
 
     if not context:
-        return {"answer": "I couldn't find any relevant info in that PDF.", "sources": []}
+        return {"queries": queries, "answer": "I couldn't find any relevant info in that PDF.", "sources": []}
 
     # 3. Generate
     answer = await LLMService.answer_question(payload.question, context)
