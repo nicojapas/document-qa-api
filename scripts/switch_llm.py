@@ -84,7 +84,7 @@ def get_current_provider(api_key: str, service_id: str) -> str | None:
             f"/services/{service_id}/env-vars/{ENV_VAR_NAME}",
             api_key
         )
-        return result.get("envVar", {}).get("value")
+        return result.get("value")
     except SystemExit:
         return None
 
