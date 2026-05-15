@@ -1,5 +1,7 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 
+from app.core.config import settings
+from app.core.limiter import limiter
 from app.schemas.qa import AnswerResponse, QuestionRequest
 from app.services.llm import LLMService
 from app.services.qa import QAService
@@ -7,8 +9,10 @@ from app.services.qa import QAService
 
 router = APIRouter()
 
+
 @router.post("/", response_model=AnswerResponse, status_code=status.HTTP_200_OK)
-async def ask(payload: QuestionRequest):
+@limiter.limit(settings.RATE_LIMIT_QUESTIONS_PER_HOUR)
+async def ask(request: Request, payload: QuestionRequest):
     """
     Ask a question to the LLM.
     """
@@ -23,5 +27,5 @@ async def ask(payload: QuestionRequest):
 
     # 3. Generate
     answer = await LLMService.answer_question(payload.question, context)
-    
+
     return {"queries": queries, "answer": answer, "sources": context}

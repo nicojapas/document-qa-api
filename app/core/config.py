@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from typing import Optional
 
 class Settings(BaseSettings):
     # Project Info
@@ -16,7 +17,22 @@ class Settings(BaseSettings):
     # AI Configuration (OpenAI, Anthropic, etc.)
     OPENAI_API_KEY: str = Field(default="sk-placeholder")
     GEMINI_AI_API_KEY: str = Field(default="xx-xxx")
-    
+
+    # Rate Limiting Configuration
+    GLOBAL_DAILY_REQUEST_LIMIT: int = Field(default=100)  # Max requests per day globally
+    MAX_FILE_SIZE_MB: int = Field(default=10)  # Max file size in MB
+    MAX_CHUNKS_PER_DOCUMENT: int = Field(default=100)  # Max chunks to embed per document
+    MAX_DOCUMENTS_TOTAL: int = Field(default=50)  # Max total documents in demo
+    RATE_LIMIT_UPLOADS_PER_HOUR: str = Field(default="5/hour")  # Per-IP upload limit
+    RATE_LIMIT_QUESTIONS_PER_HOUR: str = Field(default="30/hour")  # Per-IP question limit
+
+    # Email Notification Configuration (for rate limit alerts)
+    ALERT_EMAIL: str = Field(default="nicolasjapas@gmail.com")
+    SMTP_HOST: Optional[str] = Field(default=None)
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: Optional[str] = Field(default=None)
+    SMTP_PASSWORD: Optional[str] = Field(default=None)
+    SMTP_FROM: Optional[str] = Field(default=None)
 
     # App Config
     model_config = SettingsConfigDict(
