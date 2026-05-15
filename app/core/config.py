@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # AI Configuration (OpenAI, Anthropic, etc.)
     OPENAI_API_KEY: str = Field(default="sk-placeholder")
     GEMINI_AI_API_KEY: str = Field(default="xx-xxx")
+    DEEPSEEK_API_KEY: str = Field(default="xx-xxx")
+
+    # LLM Provider Selection: "gemini" or "deepseek"
+    LLM_PROVIDER: str = Field(default="gemini")
 
     # Rate Limiting Configuration
     GLOBAL_DAILY_REQUEST_LIMIT: int = Field(default=100)  # Max requests per day globally

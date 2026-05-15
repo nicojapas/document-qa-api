@@ -1,8 +1,8 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
-from app.core.config import settings
+from app.services.llm_factory import get_llm
+
 
 class LLMService:
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=settings.GEMINI_AI_API_KEY)
+    llm = get_llm()
 
     @classmethod
     async def answer_question(cls, question: str, context: list[str]):

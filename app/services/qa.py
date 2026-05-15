@@ -1,13 +1,13 @@
 import logging
-from langchain_google_genai import ChatGoogleGenerativeAI
-from app.core.config import settings
 from app.db.session import db
 from app.services.embeddings import EmbeddingService
+from app.services.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
+
 class QAService:
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=settings.GEMINI_AI_API_KEY)
+    llm = get_llm()
 
     @classmethod
     async def expand_query(cls, question: str) -> list[str]:
