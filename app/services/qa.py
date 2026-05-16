@@ -22,7 +22,7 @@ class QAService:
         Original query: {question}
         """
         model_name = getattr(cls.llm, "model_name", getattr(cls.llm, "model", "unknown"))
-        logger.info(f"LLM invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=expand_query")
+        print(f"[LLM] Chat invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=expand_query")
         response = await cls.llm.ainvoke(prompt)
         # Split by newline and add the original question to the list
         queries = [question] + response.content.strip().split("\n")
