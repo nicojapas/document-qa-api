@@ -25,7 +25,7 @@ def get_llm():
         )
     elif provider == "deepseek":
         return ChatOpenAI(
-            model="deepseek-chat",
+            model="deepseek-v4-flash",
             api_key=settings.DEEPSEEK_API_KEY,
             base_url=DEEPSEEK_BASE_URL
         )
