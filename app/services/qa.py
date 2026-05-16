@@ -2,6 +2,7 @@ import logging
 from app.db.session import db
 from app.services.embeddings import EmbeddingService
 from app.services.llm_factory import get_llm
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ class QAService:
         
         Original query: {question}
         """
+        model_name = getattr(cls.llm, "model_name", getattr(cls.llm, "model", "unknown"))
+        logger.info(f"LLM invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=expand_query")
         response = await cls.llm.ainvoke(prompt)
         # Split by newline and add the original question to the list
         queries = [question] + response.content.strip().split("\n")
