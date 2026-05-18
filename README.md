@@ -1,5 +1,14 @@
 # Document QA API
 
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.112.0-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/atlas)
+[![LangChain](https://img.shields.io/badge/LangChain-1.2.6-1C3C3C?logo=langchain&logoColor=white)](https://langchain.com)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-AI-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
+[![DeepSeek](https://img.shields.io/badge/DeepSeek-V4_Flash-5C6BC0)](https://deepseek.com)
+[![Pydantic](https://img.shields.io/badge/Pydantic-V2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ## 🎯 Purpose
 
 A cloud-native backend service built with **FastAPI** that allows users to upload documents (PDF/TXT/DOCX), process their contents into semantic embeddings, and answer natural language questions grounded in those documents using large language models (LLMs) and vector similarity search.
