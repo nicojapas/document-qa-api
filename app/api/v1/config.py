@@ -8,6 +8,7 @@ router = APIRouter()
 LLM_MODELS = {
     "gemini": "gemini-2.5-flash",
     "deepseek": "deepseek-v4-flash",
+    "modal": settings.MODAL_MODEL_NAME,
 }
 
 

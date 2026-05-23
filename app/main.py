@@ -79,12 +79,12 @@ async def health():
     llm_status = "ready"
 
     if settings.LLM_PROVIDER == "modal":
-        # Check Modal's health endpoint
-        health_url = settings.MODAL_LLM_URL.replace("/v1", "/health")
+        # Check Modal's /v1/models endpoint (part of OpenAI API spec)
+        models_url = f"{settings.MODAL_LLM_URL}/models"
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
-                    health_url,
+                    models_url,
                     headers={
                         "Modal-Key": settings.MODAL_KEY,
                         "Modal-Secret": settings.MODAL_SECRET,
