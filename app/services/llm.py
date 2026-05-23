@@ -1,12 +1,10 @@
-from app.services.llm_factory import get_llm
-from app.core.config import settings
+from app.services.llm_factory import get_llm_for_model
 
 
 class LLMService:
-    llm = get_llm()
-
     @classmethod
-    async def answer_question(cls, question: str, context: list[str]):
+    async def answer_question(cls, question: str, context: list[str], model: str | None = None):
+        llm = get_llm_for_model(model)
         context_text = "\n\n".join(context)
         prompt = f"""
         Answer the question based ONLY on the following context.
@@ -16,8 +14,8 @@ class LLMService:
 
         Question: {question}
         """
-        model_name = getattr(cls.llm, "model_name", getattr(cls.llm, "model", "unknown"))
-        print(f"[LLM] Chat invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=answer_question")
-        response = await cls.llm.ainvoke(prompt)
-        
+        model_name = getattr(llm, "model_name", getattr(llm, "model", "unknown"))
+        print(f"[LLM] Chat invoked: model={model_name}, method=answer_question")
+        response = await llm.ainvoke(prompt)
+
         return response.content
