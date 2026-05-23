@@ -14,9 +14,18 @@ router = APIRouter()
 @router.get("/", response_model=list[DocumentResponse])
 async def list_my_documents():
     """
-    Retrieve all documents uploaded by the current user.
+    Retrieve all documents from the database.
     """
-    return []
+    documents = await DocumentService.list_documents()
+    return [
+        DocumentResponse(
+            id=doc.id,
+            filename=doc.filename,
+            status=doc.status,
+            created_at=doc.created_at,
+        )
+        for doc in documents
+    ]
 
 
 @router.post("/", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
