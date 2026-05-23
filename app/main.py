@@ -1,3 +1,4 @@
+import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,6 +10,10 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.services.rate_limiter import GlobalRateLimiter
+
+# Cache for Modal health status (avoids expensive checks on every /health call)
+_modal_health_cache = {"status": "unknown", "timestamp": 0}
+MODAL_HEALTH_CACHE_TTL = 60  # seconds
 
 
 app = FastAPI(
@@ -79,25 +84,34 @@ async def health():
     llm_status = "ready"
 
     if settings.LLM_PROVIDER == "modal":
-        # Check Modal's /v1/models endpoint (part of OpenAI API spec)
-        models_url = f"{settings.MODAL_LLM_URL}/models"
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(
-                    models_url,
-                    headers={
-                        "Modal-Key": settings.MODAL_KEY,
-                        "Modal-Secret": settings.MODAL_SECRET,
-                    }
-                )
-                if response.status_code == 200:
-                    llm_status = "ready"
-                else:
-                    llm_status = "unavailable"
-        except httpx.TimeoutException:
-            llm_status = "warming_up"
-        except httpx.RequestError:
-            llm_status = "unavailable"
+        # Use cached status if fresh enough (avoids waking Modal on every health check)
+        now = time.time()
+        if now - _modal_health_cache["timestamp"] < MODAL_HEALTH_CACHE_TTL:
+            llm_status = _modal_health_cache["status"]
+        else:
+            # Cache expired, check Modal
+            models_url = f"{settings.MODAL_LLM_URL}/models"
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(
+                        models_url,
+                        headers={
+                            "Modal-Key": settings.MODAL_KEY,
+                            "Modal-Secret": settings.MODAL_SECRET,
+                        }
+                    )
+                    if response.status_code == 200:
+                        llm_status = "ready"
+                    else:
+                        llm_status = "unavailable"
+            except httpx.TimeoutException:
+                llm_status = "warming_up"
+            except httpx.RequestError:
+                llm_status = "unavailable"
+
+            # Update cache
+            _modal_health_cache["status"] = llm_status
+            _modal_health_cache["timestamp"] = now
 
     return {
         "status": "healthy",
