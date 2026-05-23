@@ -19,8 +19,14 @@ class Settings(BaseSettings):
     GEMINI_AI_API_KEY: str = Field(default="xx-xxx")
     DEEPSEEK_API_KEY: str = Field(default="xx-xxx")
 
-    # LLM Provider Selection: "gemini" or "deepseek"
+    # LLM Provider Selection: "gemini", "deepseek", or "modal"
     LLM_PROVIDER: str = Field(default="gemini")
+
+    # Modal LLM Configuration
+    MODAL_LLM_URL: str = Field(default="https://nicolasjapas--vllm-openai-server-serve.modal.run/v1")
+    MODAL_MODEL_NAME: str = Field(default="Qwen/Qwen2.5-7B-Instruct-AWQ")
+    MODAL_KEY: str = Field(default="")
+    MODAL_SECRET: str = Field(default="")
 
     # Rate Limiting Configuration
     GLOBAL_DAILY_REQUEST_LIMIT: int = Field(default=100)  # Max requests per day globally
