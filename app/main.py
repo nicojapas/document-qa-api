@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+import httpx
 
 from app.api.v1.api import api_router
 from app.core.config import settings
@@ -73,8 +74,36 @@ async def root():
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+async def health():
+    """Health check endpoint with LLM status."""
+    llm_status = "ready"
+
+    if settings.LLM_PROVIDER == "modal":
+        # Check Modal's health endpoint
+        health_url = settings.MODAL_LLM_URL.replace("/v1", "/health")
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    health_url,
+                    headers={
+                        "Modal-Key": settings.MODAL_KEY,
+                        "Modal-Secret": settings.MODAL_SECRET,
+                    }
+                )
+                if response.status_code == 200:
+                    llm_status = "ready"
+                else:
+                    llm_status = "unavailable"
+        except httpx.TimeoutException:
+            llm_status = "warming_up"
+        except httpx.RequestError:
+            llm_status = "unavailable"
+
+    return {
+        "status": "healthy",
+        "llm_provider": settings.LLM_PROVIDER,
+        "llm_status": llm_status
+    }
 
 
 @app.get("/api/v1/usage")
