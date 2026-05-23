@@ -10,9 +10,10 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.services.rate_limiter import GlobalRateLimiter
+from app.services.llm_factory import AVAILABLE_MODELS, get_default_model
 
-# Cache for Modal health status (avoids expensive checks on every /health call)
-_modal_health_cache = {"status": "unknown", "timestamp": 0}
+# Cache for Modal health status per model (avoids expensive checks on every /health call)
+_modal_health_cache: dict[str, dict] = {}
 MODAL_HEALTH_CACHE_TTL = 60  # seconds
 
 
@@ -79,15 +80,29 @@ async def root():
 
 
 @app.get("/health")
-async def health():
-    """Health check endpoint with LLM status."""
-    llm_status = "ready"
+async def health(model: str | None = None):
+    """Health check endpoint with LLM status for a specific model."""
+    if model is None:
+        model = get_default_model()
 
-    if settings.LLM_PROVIDER == "modal":
-        # Use cached status if fresh enough (avoids waking Modal on every health check)
+    if model not in AVAILABLE_MODELS:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Unknown model: '{model}'. Available: {list(AVAILABLE_MODELS.keys())}"}
+        )
+
+    config = AVAILABLE_MODELS[model]
+    provider = config["provider"]
+
+    # Gemini and Deepseek are always ready (external managed services)
+    if provider in ("gemini", "deepseek"):
+        llm_status = "ready"
+    else:
+        # Modal: use cached status if fresh enough
         now = time.time()
-        if now - _modal_health_cache["timestamp"] < MODAL_HEALTH_CACHE_TTL:
-            llm_status = _modal_health_cache["status"]
+        cached = _modal_health_cache.get(model)
+        if cached and now - cached["timestamp"] < MODAL_HEALTH_CACHE_TTL:
+            llm_status = cached["status"]
         else:
             # Cache expired, check Modal
             models_url = f"{settings.MODAL_LLM_URL}/models"
@@ -110,12 +125,12 @@ async def health():
                 llm_status = "unavailable"
 
             # Update cache
-            _modal_health_cache["status"] = llm_status
-            _modal_health_cache["timestamp"] = now
+            _modal_health_cache[model] = {"status": llm_status, "timestamp": now}
 
     return {
         "status": "healthy",
-        "llm_provider": settings.LLM_PROVIDER,
+        "model": model,
+        "provider": provider,
         "llm_status": llm_status
     }
 
