@@ -3,7 +3,7 @@ from fastapi import APIRouter, File, UploadFile, status, HTTPException, Request
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.session import db
-from app.schemas.document import DocumentInDB, DocumentResponse
+from app.schemas.document import DocumentInDB, DocumentResponse, DocumentStatus
 from app.services.documents import DocumentService
 from app.utils.file_parser import Parser
 
@@ -72,17 +72,26 @@ async def upload_document(
         size=len(content),
     )
 
-    # 4. Parse content
-    match extension:
-        case "pdf":
-            raw_text = Parser.from_pdf(content)
-        case "txt":
-            raw_text = Parser.from_txt(content)
-        case "docx":
-            raw_text = Parser.from_docx(content)
+    # 4. Parse content and create chunks
+    try:
+        match extension:
+            case "pdf":
+                raw_text = Parser.from_pdf(content)
+            case "txt":
+                raw_text = Parser.from_txt(content)
+            case "docx":
+                raw_text = Parser.from_docx(content)
 
-    # 5. Split the raw text into chunks and store them in MongoDB referencing their parent's id
-    await DocumentService.create_chunks(raw_text=raw_text, parent_id=doc.id)
+        # 5. Split the raw text into chunks and store them in MongoDB referencing their parent's id
+        await DocumentService.create_chunks(raw_text=raw_text, parent_id=doc.id)
+
+        # 6. Mark document as ready
+        await DocumentService.update_status(doc.id, DocumentStatus.ready)
+        doc.status = DocumentStatus.ready
+
+    except Exception:
+        await DocumentService.update_status(doc.id, DocumentStatus.failed)
+        raise
 
     return DocumentResponse(
         id=doc.id,

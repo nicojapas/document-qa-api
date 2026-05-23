@@ -1,9 +1,11 @@
 import logging
 from datetime import datetime
 
+from bson import ObjectId
+
 from app.core.config import settings
 from app.db.session import db
-from app.schemas.document import DocumentInDB
+from app.schemas.document import DocumentInDB, DocumentStatus
 from app.services.embeddings import EmbeddingService
 from app.utils.text_splitter import split_and_process_text
 
@@ -38,6 +40,14 @@ class DocumentService:
         doc.id = str(result.inserted_id)
 
         return doc
+
+    @staticmethod
+    async def update_status(doc_id: str, status: DocumentStatus) -> None:
+        """Update the status of a document."""
+        await db.documents.update_one(
+            {"_id": ObjectId(doc_id)},
+            {"$set": {"status": status.value}}
+        )
 
     @staticmethod
     async def create_chunks(raw_text: str, parent_id: str):
