@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # Modal LLM Configuration
     MODAL_LLM_URL: str = Field(default="https://nicolasjapas--vllm-openai-server-serve.modal.run/v1")
-    MODAL_MODEL_NAME: str = Field(default="Qwen/Qwen2.5-7B-Instruct-AWQ")
+    MODAL_MODEL_NAME: str = Field(default="Qwen/Qwen3-1.7B")
     MODAL_KEY: str = Field(default="")
     MODAL_SECRET: str = Field(default="")
 
