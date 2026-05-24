@@ -2,7 +2,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from app.core.config import settings
 
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 # Model registry: maps model names to their configurations
 AVAILABLE_MODELS = {
@@ -78,7 +77,7 @@ def get_llm_for_model(model_name: str | None = None):
         return ChatOpenAI(
             model=model_id,
             api_key=settings.DEEPSEEK_API_KEY,
-            base_url=DEEPSEEK_BASE_URL
+            base_url=settings.DEEPSEEK_BASE_URL
         )
     elif provider == "modal":
         return ChatOpenAI(

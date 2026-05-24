@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(default="sk-placeholder")
     GEMINI_AI_API_KEY: str = Field(default="xx-xxx")
     DEEPSEEK_API_KEY: str = Field(default="xx-xxx")
+    DEEPSEEK_BASE_URL: str = Field(default="https://api.deepseek.com")
 
     # LLM Provider Selection: "gemini", "openai", "deepseek", or "modal"
     LLM_PROVIDER: str = Field(default="gemini")
