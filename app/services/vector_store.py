@@ -89,9 +89,8 @@ class MongoDBVectorStore(VectorStore):
                 }
             }
         ]
-        cursor = db.chunks.aggregate(pipeline)
-        results = await cursor.to_list(length=top_k)
-        return [res["text"] for res in results]
+        cursor = await db.chunks.aggregate(pipeline)
+        return [doc["text"] async for doc in cursor]
 
     async def delete_document(self, doc_id: str) -> None:
         result = await db.chunks.delete_many({"parent_doc_id": doc_id})
