@@ -9,3 +9,5 @@ langchain-google-genai==4.2.0
 langchain-openai>=1.0.0
 slowapi==0.1.9
 aiosmtplib==3.0.2
+faiss-cpu>=1.7.0
+langchain-community>=0.2.0

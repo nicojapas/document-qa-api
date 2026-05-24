@@ -6,6 +6,7 @@
 [![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?logo=langchain&logoColor=white)](https://langchain.com)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-AI-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
 [![DeepSeek](https://img.shields.io/badge/DeepSeek-V4_Flash-5C6BC0)](https://deepseek.com)
+[![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-blue)](https://github.com/facebookresearch/faiss)
 [![Modal](https://img.shields.io/badge/Modal-Serverless_GPU-6366F1)](https://modal.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -16,7 +17,7 @@ A production-ready RAG (Retrieval-Augmented Generation) backend that enables doc
 - **Multi-provider LLM support** with runtime model switching (Gemini, DeepSeek, self-hosted via Modal)
 - **Self-hosted LLM option** using Qwen 3 on Modal's serverless GPU infrastructure
 - **Document processing** for PDF, TXT, and DOCX formats
-- **Vector similarity search** for semantic retrieval using FAISS
+- **Pluggable vector store** with MongoDB Atlas Vector Search (production) and FAISS (local) options
 - **JWT authentication** with per-user document isolation
 - **Rate limiting** with global daily caps and per-IP throttling
 - **Health monitoring** with LLM availability status and warm-up detection
@@ -42,14 +43,14 @@ Client Request
 │  └── Embedding generation                               │
 └─────────────────────────────────────────────────────────┘
       │
-      ├──────────────────────┬────────────────────────────┐
-      ▼                      ▼                            ▼
-┌──────────────┐    ┌────────────────┐    ┌──────────────────────┐
-│  MongoDB     │    │  FAISS         │    │  LLM Provider        │
-│  (metadata)  │    │  (vectors)     │    │  ├── Gemini          │
-└──────────────┘    └────────────────┘    │  ├── DeepSeek        │
-                                          │  └── Modal (Qwen 3)  │
-                                          └──────────────────────┘
+      ├───────────────────┬─────────────────────┬──────────────────────┐
+      ▼                   ▼                     ▼                      ▼
+┌──────────────┐   ┌─────────────────┐   ┌──────────────────────┐
+│  MongoDB     │   │  Vector Store   │   │  LLM Provider        │
+│  (metadata)  │   │  ├── FAISS      │   │  ├── Gemini          │
+└──────────────┘   │  └── Mongo Atlas│   │  ├── DeepSeek        │
+                   └─────────────────┘   │  └── Modal (Qwen 3)  │
+                                         └──────────────────────┘
 ```
 
 ## Tech Stack
@@ -58,7 +59,7 @@ Client Request
 |-------|------------|
 | API | FastAPI, Pydantic V2, async/await |
 | Database | MongoDB Atlas |
-| Vector Store | FAISS |
+| Vector Store | MongoDB Atlas Vector Search, FAISS |
 | LLM Providers | Google Gemini, DeepSeek, Modal (self-hosted) |
 | Self-hosted LLM | vLLM + Qwen/Qwen3-1.7B on Modal |
 | Auth | JWT (python-jose) |

@@ -1,7 +1,7 @@
 import logging
-from app.db.session import db
 from app.services.embeddings import EmbeddingService
 from app.services.llm_factory import get_llm
+from app.services.vector_store import get_vector_store
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -30,37 +30,23 @@ class QAService:
         return [q.strip() for q in queries if q.strip()]
 
     @classmethod
-    async def get_relevant_context(cls, queries: list[str], doc_id: str) -> list[list[str]]:
+    async def get_relevant_context(cls, queries: list[str], doc_id: str) -> list[str]:
         print(f"[DEBUG] Searching for doc_id: {doc_id}")
         print(f"[DEBUG] Number of queries: {len(queries)}")
+
+        vector_store = get_vector_store()
         all_context = []
 
         for q in queries:
-            # 2. Embed each variation
             query_vector = await EmbeddingService.generate_embeddings([q], is_query=True)
             print(f"[DEBUG] Generated embedding with {len(query_vector)} dimensions")
 
-            # 3. Search MongoDB for each variation
-            pipeline = [
-                {
-                    "$vectorSearch": {
-                        "index": "vector_index",
-                        "path": "embedding",
-                        "queryVector": query_vector,
-                        "numCandidates": 50,
-                        "limit": 3,
-                        "filter": {
-                            "parent_doc_id": doc_id
-                        }
-                    }
-                }
-            ]
-            cursor = await db.chunks.aggregate(pipeline)
-            results = await cursor.to_list(length=3)
+            results = await vector_store.search(query_vector, doc_id, top_k=3)
             print(f"[DEBUG] Query '{q[:50]}...' returned {len(results)} results")
 
-            all_context.extend([res["text"] for res in results])
+            all_context.extend(results)
 
-        # 4. Remove duplicates (different queries might find the same chunk)
-        print(f"[DEBUG] Total unique context chunks: {len(set(all_context))}")
-        return list(set(all_context))
+        # Remove duplicates (different queries might find the same chunk)
+        unique_context = list(set(all_context))
+        print(f"[DEBUG] Total unique context chunks: {len(unique_context)}")
+        return unique_context

@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.session import db
 from app.schemas.document import DocumentInDB, DocumentStatus
 from app.services.embeddings import EmbeddingService
+from app.services.vector_store import get_vector_store
 from app.utils.text_splitter import split_and_process_text
 
 logger = logging.getLogger(__name__)
@@ -65,16 +66,6 @@ class DocumentService:
         # Generate all embeddings in efficient batches
         vectors = await EmbeddingService.generate_embeddings(chunks)
 
-        chunk_documents = [
-            {
-                "parent_doc_id": parent_id,
-                "index": index,
-                "text": text,
-                "embedding": vectors[index],
-                "create_at": datetime.now()
-            }
-            for index, text in enumerate(chunks)
-        ]
-
-        if chunk_documents:
-            await db.chunks.insert_many(chunk_documents)
+        # Store chunks using the configured vector store
+        vector_store = get_vector_store()
+        await vector_store.add_documents(chunks, vectors, parent_id)

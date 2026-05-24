@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # LLM Provider Selection: "gemini", "deepseek", or "modal"
     LLM_PROVIDER: str = Field(default="gemini")
 
+    # Vector Store Selection: "mongodb" (Atlas Vector Search) or "faiss" (local)
+    VECTOR_STORE: str = Field(default="mongodb")
+
     # Modal LLM Configuration
     MODAL_LLM_URL: str = Field(default="https://nicolasjapas--vllm-openai-server-serve.modal.run/v1")
     MODAL_MODEL_NAME: str = Field(default="Qwen/Qwen3-1.7B")
@@ -43,6 +46,10 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = Field(default=None)
     SMTP_PASSWORD: Optional[str] = Field(default=None)
     SMTP_FROM: Optional[str] = Field(default=None)
+
+    # Render API Configuration (for scripts - local use only)
+    RENDER_API_KEY: str = Field(default="")
+    RENDER_SERVICE_ID: str = Field(default="")
 
     # App Config
     model_config = SettingsConfigDict(
