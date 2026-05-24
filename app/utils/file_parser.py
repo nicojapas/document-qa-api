@@ -2,6 +2,7 @@ import io
 import logging
 from pypdf import PdfReader
 from pypdf._page import PageObject
+from docx import Document
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +76,42 @@ class Parser:
         return full_text
 
     @staticmethod
-    def from_txt(txt_bytes: bytes):
-        return
+    def from_txt(txt_bytes: bytes) -> str:
+        """Extract text from a TXT file with encoding detection."""
+        # Try common encodings in order of likelihood
+        encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
+
+        for encoding in encodings:
+            try:
+                text = txt_bytes.decode(encoding)
+                # Check for replacement characters that indicate wrong encoding
+                if '\ufffd' not in text:
+                    return text
+            except (UnicodeDecodeError, LookupError):
+                continue
+
+        # Last resort: decode with errors ignored
+        logger.warning("Could not detect encoding, using utf-8 with errors ignored")
+        return txt_bytes.decode('utf-8', errors='ignore')
     
     @staticmethod
-    def from_docx(docx_bytes: bytes):
-        return
+    def from_docx(docx_bytes: bytes) -> str:
+        """Extract text from a DOCX file including paragraphs and tables."""
+        bytes_stream = io.BytesIO(docx_bytes)
+        doc = Document(bytes_stream)
+
+        text_parts = []
+
+        # Extract text from paragraphs
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                text_parts.append(paragraph.text)
+
+        # Extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if row_text:
+                    text_parts.append(" | ".join(row_text))
+
+        return "\n".join(text_parts)
