@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = Field(default=None)
     SMTP_FROM: Optional[str] = Field(default=None)
 
+    # JWT Authentication
+    JWT_SECRET_KEY: str = Field(default="CHANGE-ME-IN-PRODUCTION")
+    JWT_ALGORITHM: str = Field(default="HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_DAYS: int = Field(default=30)
+
+    # Demo user credentials (hashed password stored, not plaintext)
+    DEMO_USER_EMAIL: str = Field(default="demo@example.com")
+    DEMO_USER_PASSWORD_HASH: str = Field(default="")
+
     # Render API Configuration (for scripts - local use only)
     RENDER_API_KEY: str = Field(default="")
     RENDER_SERVICE_ID: str = Field(default="")

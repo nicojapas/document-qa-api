@@ -1,8 +1,10 @@
-from fastapi import APIRouter, File, UploadFile, status, HTTPException, Request
+from fastapi import APIRouter, Depends, File, UploadFile, status, HTTPException, Request
 
+from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.session import db
+from app.models.user import User
 from app.schemas.document import DocumentInDB, DocumentResponse, DocumentStatus
 from app.services.documents import DocumentService
 from app.utils.file_parser import Parser
@@ -12,9 +14,11 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[DocumentResponse])
-async def list_my_documents():
+async def list_my_documents(_: User = Depends(get_current_user)):
     """
     Retrieve all documents from the database.
+
+    Requires authentication via Bearer token.
     """
     documents = await DocumentService.list_documents()
     return [
@@ -33,10 +37,12 @@ async def list_my_documents():
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
-    # current_user = Depends(get_current_user) # Placeholder for auth
+    _: User = Depends(get_current_user),
 ) -> DocumentResponse:
     """
     Upload a document, save metadata to MongoDB, and start the AI embedding process.
+
+    Requires authentication via Bearer token.
     """
     # 0. Check global document limit (prevents database bloat)
     doc_count = await db.documents.count_documents({})
