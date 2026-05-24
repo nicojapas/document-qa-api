@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     GEMINI_AI_API_KEY: str = Field(default="xx-xxx")
     DEEPSEEK_API_KEY: str = Field(default="xx-xxx")
 
-    # LLM Provider Selection: "gemini", "deepseek", or "modal"
+    # LLM Provider Selection: "gemini", "openai", "deepseek", or "modal"
     LLM_PROVIDER: str = Field(default="gemini")
 
     # Vector Store Selection: "mongodb" (Atlas Vector Search) or "faiss" (local)

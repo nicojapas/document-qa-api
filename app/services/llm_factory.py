@@ -18,6 +18,14 @@ AVAILABLE_MODELS = {
         "provider": "modal",
         "model_id": "Qwen/Qwen3-1.7B",
     },
+    "gpt-4o": {
+        "provider": "openai",
+        "model_id": "gpt-4o",
+    },
+    "gpt-4o-mini": {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+    },
 }
 
 # Default model per provider (for backwards compatibility)
@@ -25,6 +33,7 @@ DEFAULT_MODELS = {
     "gemini": "gemini-2.5-flash",
     "deepseek": "deepseek-v4-flash",
     "modal": "qwen3-1.7b",
+    "openai": "gpt-4o-mini",
 }
 
 
@@ -80,6 +89,11 @@ def get_llm_for_model(model_name: str | None = None):
                 "Modal-Key": settings.MODAL_KEY,
                 "Modal-Secret": settings.MODAL_SECRET,
             }
+        )
+    elif provider == "openai":
+        return ChatOpenAI(
+            model=model_id,
+            api_key=settings.OPENAI_API_KEY,
         )
     else:
         raise ValueError(f"Unknown provider: '{provider}'")
