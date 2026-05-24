@@ -1,6 +1,10 @@
+import logging
+
 from fastapi import APIRouter, Depends, File, UploadFile, status, HTTPException, Request
 
 from app.api.deps import get_current_user
+
+logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.session import db
@@ -95,7 +99,8 @@ async def upload_document(
         await DocumentService.update_status(doc.id, DocumentStatus.ready)
         doc.status = DocumentStatus.ready
 
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to process document {doc.id}: {e}")
         await DocumentService.update_status(doc.id, DocumentStatus.failed)
         raise
 

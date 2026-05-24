@@ -1,4 +1,8 @@
+import logging
+
 from app.services.llm_factory import get_llm_for_model
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -15,7 +19,7 @@ class LLMService:
         Question: {question}
         """
         model_name = getattr(llm, "model_name", getattr(llm, "model", "unknown"))
-        print(f"[LLM] Chat invoked: model={model_name}, method=answer_question")
+        logger.info(f"Chat invoked: model={model_name}, method=answer_question")
         response = await llm.ainvoke(prompt)
 
         return response.content

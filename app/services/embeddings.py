@@ -1,6 +1,10 @@
+import logging
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.rate_limiters import InMemoryRateLimiter
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 
@@ -21,11 +25,11 @@ class EmbeddingService:
             # 1. Use aembed_query for questions
             # Result: [0.1, 0.2, 0.3, ...] (Flat list)
             # This automatically uses task_type="retrieval_query"
-            print(f"[LLM] Embedding invoked: model={EMBEDDING_MODEL}, type=query, texts=1")
+            logger.info(f"Embedding invoked: model={EMBEDDING_MODEL}, type=query, texts=1")
             return await cls._base_embeddings.aembed_query(texts[0])
 
         # 2. Use aembed_documents for PDF chunks
         # Result: [[0.1, ...], [0.2, ...]] (List of lists)
         # This automatically uses task_type="retrieval_document"
-        print(f"[LLM] Embedding invoked: model={EMBEDDING_MODEL}, type=document, texts={len(texts)}")
+        logger.info(f"Embedding invoked: model={EMBEDDING_MODEL}, type=document, texts={len(texts)}")
         return await cls._base_embeddings.aembed_documents(texts)

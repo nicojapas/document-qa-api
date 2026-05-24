@@ -8,22 +8,21 @@ logger = logging.getLogger(__name__)
 
 
 class QAService:
-    llm = get_llm()
-
     @classmethod
     async def expand_query(cls, question: str) -> list[str]:
         prompt = f"""
-        You are an AI language model assistant. Your task is to generate 3 
-        different versions of the given user query to retrieve relevant documents from a vector database. 
-        By generating multiple perspectives on the user query, your goal is to help the user 
-        overcome some of the limitations of distance-based similarity search. 
+        You are an AI language model assistant. Your task is to generate 3
+        different versions of the given user query to retrieve relevant documents from a vector database.
+        By generating multiple perspectives on the user query, your goal is to help the user
+        overcome some of the limitations of distance-based similarity search.
         Provide these alternative versions separated by newlines.
-        
+
         Original query: {question}
         """
-        model_name = getattr(cls.llm, "model_name", getattr(cls.llm, "model", "unknown"))
-        print(f"[LLM] Chat invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=expand_query")
-        response = await cls.llm.ainvoke(prompt)
+        llm = get_llm()
+        model_name = getattr(llm, "model_name", getattr(llm, "model", "unknown"))
+        logger.info(f"Chat invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=expand_query")
+        response = await llm.ainvoke(prompt)
         # Split by newline and add the original question to the list
         queries = [question] + response.content.strip().split("\n")
         
@@ -31,22 +30,22 @@ class QAService:
 
     @classmethod
     async def get_relevant_context(cls, queries: list[str], doc_id: str) -> list[str]:
-        print(f"[DEBUG] Searching for doc_id: {doc_id}")
-        print(f"[DEBUG] Number of queries: {len(queries)}")
+        logger.debug(f"Searching for doc_id: {doc_id}")
+        logger.debug(f"Number of queries: {len(queries)}")
 
         vector_store = get_vector_store()
         all_context = []
 
         for q in queries:
             query_vector = await EmbeddingService.generate_embeddings([q], is_query=True)
-            print(f"[DEBUG] Generated embedding with {len(query_vector)} dimensions")
+            logger.debug(f"Generated embedding with {len(query_vector)} dimensions")
 
             results = await vector_store.search(query_vector, doc_id, top_k=3)
-            print(f"[DEBUG] Query '{q[:50]}...' returned {len(results)} results")
+            logger.debug(f"Query '{q[:50]}...' returned {len(results)} results")
 
             all_context.extend(results)
 
         # Remove duplicates (different queries might find the same chunk)
         unique_context = list(set(all_context))
-        print(f"[DEBUG] Total unique context chunks: {len(unique_context)}")
+        logger.debug(f"Total unique context chunks: {len(unique_context)}")
         return unique_context

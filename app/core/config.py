@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
 
+    # CORS Configuration
+    CORS_ORIGINS: str = Field(default="http://localhost:3000")
+
     # MongoDB Configuration
     # We use Field(..., env='...') to ensure it maps correctly if naming differs
     MONGODB_URL: str = Field(default="mongodb://localhost:27017")
@@ -27,7 +30,7 @@ class Settings(BaseSettings):
     VECTOR_STORE: str = Field(default="mongodb")
 
     # Modal LLM Configuration
-    MODAL_LLM_URL: str = Field(default="https://nicolasjapas--vllm-openai-server-serve.modal.run/v1")
+    MODAL_LLM_URL: str = Field(default="")
     MODAL_MODEL_NAME: str = Field(default="Qwen/Qwen3-1.7B")
     MODAL_KEY: str = Field(default="")
     MODAL_SECRET: str = Field(default="")
@@ -41,7 +44,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_QUESTIONS_PER_HOUR: str = Field(default="30/hour")  # Per-IP question limit
 
     # Email Notification Configuration (for rate limit alerts)
-    ALERT_EMAIL: str = Field(default="nicolasjapas@gmail.com")
+    ALERT_EMAIL: str = Field(default="")
     SMTP_HOST: Optional[str] = Field(default=None)
     SMTP_PORT: int = Field(default=587)
     SMTP_USER: Optional[str] = Field(default=None)
