@@ -1,8 +1,11 @@
 import logging
+import time
 from app.services.embeddings import EmbeddingService
 from app.services.llm_factory import get_llm
 from app.services.vector_store import get_vector_store
 from app.core.config import settings
+from app.core.metrics import record_llm_metrics
+from app.services.llm import _extract_token_usage
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +24,22 @@ class QAService:
         """
         llm = get_llm()
         model_name = getattr(llm, "model_name", getattr(llm, "model", "unknown"))
-        logger.info(f"Chat invoked: provider={settings.LLM_PROVIDER}, model={model_name}, method=expand_query")
+
+        start_time = time.perf_counter()
         response = await llm.ainvoke(prompt)
+        latency_ms = (time.perf_counter() - start_time) * 1000
+
+        token_usage = _extract_token_usage(response)
+        await record_llm_metrics(
+            model=model_name,
+            method="expand_query",
+            latency_ms=latency_ms,
+            **token_usage,
+        )
+
         # Split by newline and add the original question to the list
         queries = [question] + response.content.strip().split("\n")
-        
+
         return [q.strip() for q in queries if q.strip()]
 
     @classmethod

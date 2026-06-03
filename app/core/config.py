@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     RENDER_API_KEY: str = Field(default="")
     RENDER_SERVICE_ID: str = Field(default="")
 
+    # Observability Configuration
+    LLM_LATENCY_THRESHOLD_MS: int = Field(default=5000)  # Alert if latency exceeds this (ms)
+    ALERT_WEBHOOK_URL: Optional[str] = Field(default=None)  # Webhook for latency alerts
+
     # App Config
     model_config = SettingsConfigDict(
         env_file=".env",              # Tell Pydantic to read from .env

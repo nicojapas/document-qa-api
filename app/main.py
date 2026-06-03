@@ -42,8 +42,8 @@ async def global_rate_limit_middleware(request: Request, call_next):
     Global rate limiting middleware that enforces a daily request cap.
     This protects against IP rotation attacks.
     """
-    # Skip rate limiting for health checks and docs
-    if request.url.path in ["/", "/health", "/docs", "/openapi.json", "/redoc"]:
+    # Skip rate limiting for health checks, docs, and metrics
+    if request.url.path in ["/", "/health", "/docs", "/openapi.json", "/redoc"] or request.url.path.startswith("/api/v1/metrics"):
         return await call_next(request)
 
     # Check global daily limit
