@@ -21,6 +21,7 @@ A production-ready RAG (Retrieval-Augmented Generation) backend that enables doc
 - **JWT authentication** with per-user document isolation
 - **Rate limiting** with global daily caps and per-IP throttling
 - **Health monitoring** with LLM availability status and warm-up detection
+- **LLM observability** with latency tracking, token throughput metrics, and automated alerting
 
 ## Architecture
 
@@ -79,6 +80,24 @@ Switch models per request by specifying the `model` parameter, or set a default 
 
 The Modal integration uses vLLM serving Qwen3-1.7B on serverless GPU infrastructure. The `/health` endpoint reports LLM availability with warm-up detection for cold starts.
 
+## Observability
+
+The API includes built-in observability for LLM inference:
+
+| Metric | Description |
+|--------|-------------|
+| **Latency** | Response time (ms) for each LLM call |
+| **Token throughput** | Prompt, completion, and total tokens per request |
+| **Automated alerts** | Webhook/log alerts when latency exceeds threshold |
+
+Metrics are stored in MongoDB and queryable via the `/api/v1/metrics` endpoints.
+
+Configure via environment variables:
+```bash
+LLM_LATENCY_THRESHOLD_MS=5000  # Alert threshold (default: 5000ms)
+ALERT_WEBHOOK_URL=             # Optional webhook for latency alerts
+```
+
 ## API Reference
 
 ### Authentication
@@ -104,6 +123,8 @@ The Modal integration uses vLLM serving Qwen3-1.7B on serverless GPU infrastruct
 |----------|--------|-------------|
 | `/health` | GET | Health check with LLM status |
 | `/api/v1/usage` | GET | Current rate limit usage |
+| `/api/v1/metrics` | GET | LLM inference metrics (latency, tokens) |
+| `/api/v1/metrics/summary` | GET | Aggregated metrics by model/method |
 
 ## License
 
