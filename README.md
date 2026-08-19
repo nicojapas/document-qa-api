@@ -14,8 +14,8 @@ A production-ready RAG (Retrieval-Augmented Generation) backend that enables doc
 
 ## Key Features
 
-- **Hybrid retrieval** combining BM25 keyword search and vector similarity search, fused via Reciprocal Rank Fusion, then re-ranked with a cross-encoder for precision
-- **SSE token streaming** — answers stream to the client as the LLM generates them, not as one blocking response
+- **Hybrid retrieval** combining BM25 keyword search and vector similarity search, fused via Reciprocal Rank Fusion, then re-ranked via the hosted Voyage AI rerank API for precision
+- **SSE streaming throughout** — both ingestion and question-answering report live, step-by-step progress (not just the final answer token-by-token) instead of one blocking response
 - **Multi-provider LLM support** with runtime model switching (Gemini, DeepSeek, OpenAI, self-hosted via Modal)
 - **Self-hosted LLM option** using Qwen 3 on Modal's serverless GPU infrastructure
 - **Document processing** for PDF, TXT, and DOCX formats
@@ -57,17 +57,17 @@ Client Request
 │  ├── Vector search (per expanded query)                  │
 │  ├── BM25 keyword search (rank_bm25)                     │
 │  ├── Reciprocal Rank Fusion                               │
-│  └── Cross-encoder re-rank (sentence-transformers)        │
+│  └── Rerank (Voyage AI, hosted API)                       │
 └─────────────────────────────────────────────────────────┘
       │
-      ├───────────────────┬─────────────────────┬──────────────────────┐
-      ▼                   ▼                     ▼                      ▼
-┌──────────────┐   ┌─────────────────┐   ┌──────────────────────┐
-│  MongoDB     │   │  Vector Store   │   │  LLM Provider        │
-│  (metadata)  │   │  ├── FAISS      │   │  ├── Gemini          │
-└──────────────┘   │  └── Mongo Atlas│   │  ├── DeepSeek/OpenAI │
-                   └─────────────────┘   │  └── Modal (Qwen 3)  │
-                                         └──────────────────────┘
+      ├────────────────────────┬────────────────────┬─────────────────────┐
+      ▼                        ▼                    ▼                     ▼
+┌────────────────┐   ┌──────────────────┐   ┌──────────────┐   ┌─────────────────────┐
+│ MongoDB        │   │ Vector Store     │   │ Reranker     │   │ LLM Provider        │
+│ (metadata)     │   │ ├── FAISS        │   │ (Voyage AI,  │   │ ├── Gemini          │
+└────────────────┘   │ └── Mongo Atlas  │   │  rerank-2.5) │   │ ├── DeepSeek/OpenAI │
+                     └──────────────────┘   └──────────────┘   │ └── Modal (Qwen 3)  │
+                                                               └─────────────────────┘
 ```
 
 ## Retrieval Pipeline
@@ -77,20 +77,33 @@ Retrieval combines three signals rather than relying on vector similarity alone:
 1. **Vector search** runs once per LLM-expanded query variant against the configured vector store (MongoDB Atlas Vector Search or FAISS).
 2. **BM25** (`rank_bm25`) scores the same document's chunks against the original literal question, catching exact keyword/entity matches that embeddings can miss.
 3. **Reciprocal Rank Fusion** (k=60) merges all rankings by rank position, with no score normalization needed between BM25's unbounded scores and vector similarity's bounded ones.
-4. **Cross-encoder re-ranking** (`cross-encoder/ms-marco-MiniLM-L-6-v2`, lazily loaded) scores the fused candidate pool directly against the question and selects the final top-k passed to the LLM.
+4. **Re-ranking** via the hosted [Voyage AI](https://www.voyageai.com) rerank API (`rerank-2.5`) scores the fused candidate pool directly against the question and selects the final top-k passed to the LLM. Runs as an HTTP call rather than a locally-loaded cross-encoder, to keep the Render instance's memory footprint down.
 
 See `app/services/retrieval.py` for the implementation, and [Evaluation](#evaluation) below for the measured impact.
 
 ## Streaming
 
-`POST /api/v1/ask/stream` streams the answer via Server-Sent Events instead of returning one blocking JSON response. Retrieval (query expansion → hybrid search → re-rank) runs to completion first, then the response streams:
+Both question-answering and document ingestion have a streaming variant that reports live, step-by-step progress via Server-Sent Events instead of returning (or requiring the client to wait for) one blocking response. Both are consumed via `fetch()` + `ReadableStream` rather than `EventSource`, since they need the `Authorization` header and, for ingestion, a `multipart/form-data` body — neither of which `EventSource` supports.
+
+**`POST /api/v1/ask/stream`** — query expansion and retrieval run first, then the response streams:
 
 1. `queries` — the expanded query variants used for retrieval
-2. `sources` — the retrieved chunks with their vector/BM25/fused/rerank scores
-3. `token` — one event per generated token/delta
-4. `done` — final answer text plus latency and token-usage metrics
+2. `retrieval_stage` — one event per retrieval sub-step as it actually completes: `vector` (per-query vector search), `bm25` (keyword search), `fuse` (Reciprocal Rank Fusion), `rerank` (Voyage AI). Retrieval runs as a background task so these arrive incrementally rather than all landing at once after the whole thing finishes.
+3. `sources` — the retrieved chunks with their vector/BM25/fused/rerank scores
+4. `token` — one event per generated token/delta
+5. `done` — final answer text plus latency and token-usage metrics
 
-Consumed via `fetch()` + `ReadableStream` (not `EventSource`, since the endpoint needs the `Authorization` header). The non-streaming `POST /api/v1/ask/` endpoint is kept alongside it for simple request/response use (e.g. the eval harness, Swagger UI).
+The non-streaming `POST /api/v1/ask/` endpoint is kept alongside it for simple request/response use (e.g. the eval harness, Swagger UI).
+
+**`POST /api/v1/documents/stream`** — same idea for ingestion:
+
+1. `received` — document metadata saved
+2. `split` — text extracted and chunked, with the resulting chunk count
+3. `embed` — chunks embedded, with the embedding model used
+4. `store` — chunks and vectors written to the configured vector store, with which backend handled it
+5. `done` — the created document
+
+Both streams open with a padding comment frame before the first real event — some proxies/CDNs buffer a response until a minimum byte threshold is reached, which would otherwise hold back these (individually tiny) events until the connection closes. The non-streaming `POST /api/v1/documents/` endpoint remains for simple request/response use.
 
 ## Evaluation
 
@@ -101,6 +114,15 @@ python -m eval.run_eval
 ```
 
 Results are written to `eval/results/report.md` (per-question hit/miss table + summary) and `eval/results/report.json`.
+
+A second harness scores generation quality — faithfulness, answer relevancy, and context precision — on the same fixture, running the live retrieve-then-answer pipeline and judging it with [Ragas](https://docs.ragas.io), using the app's existing Gemini LLM and embeddings (no OpenAI key, no local judge model):
+
+```bash
+pip install -r requirements.txt -r eval/requirements.txt
+python -m eval.run_ragas_eval
+```
+
+Results are written to `eval/results/ragas_report.json`. Ragas' deps (`pandas`/`pyarrow`/`datasets`) are kept out of the deployed app's `requirements.txt` on purpose — they'd bloat the Render service for no runtime benefit.
 
 ## Tech Stack
 
@@ -113,6 +135,7 @@ Results are written to `eval/results/report.md` (per-question hit/miss table + s
 | Keyword Search | BM25 (`rank_bm25`) |
 | Re-ranking | Cross-encoder (Voyage AI `rerank-2.5`, hosted) |
 | Fusion | Reciprocal Rank Fusion |
+| Evaluation | Recall@5 harness, Ragas (faithfulness, answer relevancy, context precision) |
 | LLM Providers | Google Gemini, DeepSeek, OpenAI, Modal (self-hosted) |
 | Self-hosted LLM | vLLM + Qwen/Qwen3-1.7B on Modal |
 | Auth | JWT (python-jose) |
@@ -155,20 +178,20 @@ ALERT_WEBHOOK_URL=             # Optional webhook for latency alerts
 ### Authentication
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/auth/register` | POST | Register new user |
-| `/api/v1/auth/login` | POST | Authenticate and receive JWT |
+| `/api/v1/auth/login` | POST | Authenticate with the demo user's email/password, receive a JWT |
 
 ### Documents
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/documents` | POST | Upload and process document |
+| `/api/v1/documents` | POST | Upload and process document, get one JSON response |
+| `/api/v1/documents/stream` | POST | Upload a document, stream ingestion progress via SSE (`received` → `split` → `embed` → `store` → `done`) |
 | `/api/v1/documents` | GET | List user's documents |
 
 ### Question Answering
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/v1/ask` | POST | Ask a question, get one JSON response (`{queries, answer, sources}`) |
-| `/api/v1/ask/stream` | POST | Ask a question, stream the answer via SSE (`queries` → `sources` → `token`* → `done`) |
+| `/api/v1/ask/stream` | POST | Ask a question, stream progress and the answer via SSE (`queries` → `retrieval_stage`\* → `sources` → `token`\* → `done`) |
 
 ### System
 | Endpoint | Method | Description |
