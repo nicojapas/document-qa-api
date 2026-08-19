@@ -1,0 +1,392 @@
+<title>RAG Workflow — Document QA API</title>
+<style>
+  :root {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --border: #d8dde3;
+    --ink: #171b20;
+    --muted: #5c6673;
+    --accent-ingest: #0d7a68;
+    --accent-ingest-soft: rgba(13, 122, 104, 0.10);
+    --accent-query: #5b4bc4;
+    --accent-query-soft: rgba(91, 75, 196, 0.08);
+    --code-bg: #eceff2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1013;
+      --surface: #15191e;
+      --border: #262c33;
+      --ink: #e7eaee;
+      --muted: #8b93a1;
+      --accent-ingest: #2fd9bd;
+      --accent-ingest-soft: rgba(47, 217, 189, 0.12);
+      --accent-query: #a394f0;
+      --accent-query-soft: rgba(163, 148, 240, 0.12);
+      --code-bg: #1b2026;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1013;
+    --surface: #15191e;
+    --border: #262c33;
+    --ink: #e7eaee;
+    --muted: #8b93a1;
+    --accent-ingest: #2fd9bd;
+    --accent-ingest-soft: rgba(47, 217, 189, 0.12);
+    --accent-query: #a394f0;
+    --accent-query-soft: rgba(163, 148, 240, 0.12);
+    --code-bg: #1b2026;
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --border: #d8dde3;
+    --ink: #171b20;
+    --muted: #5c6673;
+    --accent-ingest: #0d7a68;
+    --accent-ingest-soft: rgba(13, 122, 104, 0.10);
+    --accent-query: #5b4bc4;
+    --accent-query-soft: rgba(91, 75, 196, 0.08);
+    --code-bg: #eceff2;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 48px 32px 64px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.2;
+    margin: 0 0 10px;
+    text-wrap: balance;
+    font-weight: 650;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 62ch;
+    margin: 0 0 8px;
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 18px;
+    padding: 5px 11px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  .status.is-running {
+    color: var(--accent-ingest);
+    border-color: var(--accent-ingest);
+  }
+  .status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-ingest);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .status.is-running::before { animation: dot-pulse 1.4s ease-in-out infinite; }
+  }
+
+  /* --- live-state diagram styling --- */
+  .stage-pending { opacity: 0.38; }
+  .badge-done circle { fill: var(--accent-ingest); }
+  .badge-done path { fill: none; stroke: var(--surface); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .run-dot { fill: var(--accent-ingest); }
+  .stage-current-box { fill: var(--accent-ingest-soft); stroke: var(--accent-ingest); stroke-width: 2.2; }
+  @media (prefers-reduced-motion: no-preference) {
+    .stage-current-box { animation: current-pulse 1.8s ease-in-out infinite; }
+    .run-dot { animation: dot-pulse 1.4s ease-in-out infinite; }
+  }
+  @keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @keyframes current-pulse {
+    0%, 100% { fill: var(--accent-ingest-soft); stroke-width: 2.2; }
+    50% { fill: var(--surface); stroke-width: 3.4; }
+  }
+
+  figure {
+    margin: 40px 0 0;
+  }
+  .diagram-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 8px;
+    overflow-x: auto;
+  }
+  svg { display: block; min-width: 980px; }
+  figcaption {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 68ch;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .swatch {
+    width: 22px;
+    height: 3px;
+    border-radius: 2px;
+    flex: none;
+  }
+  .swatch.ingest { background: var(--accent-ingest); }
+  .swatch.query { background: var(--accent-query); }
+  .swatch.dashed {
+    background: none;
+    border-top: 2px dashed var(--muted);
+    height: 0;
+  }
+  .badge-sample {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex: none;
+  }
+  .badge-sample.done { background: var(--accent-ingest-soft); border: 1.4px solid var(--accent-ingest); }
+  .badge-sample.current { background: var(--accent-ingest-soft); border: 2px solid var(--accent-ingest); }
+  .badge-sample.pending { background: var(--surface); border: 1.4px solid var(--border); opacity: 0.5; }
+
+  .traceback {
+    margin-top: 44px;
+  }
+  .traceback h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 14px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 9px 14px 9px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.step { white-space: nowrap; font-weight: 500; }
+  td.mod code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+  .lane-tag {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex: none;
+  }
+  .lane-tag.ingest { background: var(--accent-ingest); }
+  .lane-tag.query { background: var(--accent-query); }
+</style>
+
+<div class="page">
+  <p class="eyebrow">Document QA API</p>
+  <h1>Retrieval-augmented generation workflow</h1>
+  <p class="lede">
+    How a document becomes searchable, and how a question becomes an answer —
+    the two pipelines as they exist in <code>app/services</code> today.
+  </p>
+  <span class="status is-running">Simulated run — currently embedding chunks</span>
+
+  <figure>
+    <div class="diagram-frame">
+      <svg viewBox="0 0 1650 470" role="img" aria-label="Diagram of the ingestion pipeline writing documents into a shared MongoDB store, and the query pipeline reading from that store through hybrid vector and keyword search, fusion, reranking, and streamed LLM answer generation.">
+        <defs>
+          <marker id="arrow-ingest" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-ingest)" />
+          </marker>
+          <marker id="arrow-query" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-query)" />
+          </marker>
+          <marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)" />
+          </marker>
+        </defs>
+
+        <text x="40" y="26" font-family="ui-monospace, monospace" font-size="12" letter-spacing="0.08em" fill="var(--accent-ingest)">INGEST — write path</text>
+        <text class="stage-pending" x="40" y="228" font-family="ui-monospace, monospace" font-size="12" letter-spacing="0.08em" fill="var(--accent-query)">QUERY &amp; ANSWER — read path</text>
+
+        <!-- Ingestion boxes -->
+        <g font-family="-apple-system, Segoe UI, system-ui, sans-serif">
+          <!-- done: Upload -->
+          <rect x="40" y="55" width="160" height="70" rx="10" fill="var(--accent-ingest-soft)" stroke="var(--accent-ingest)" stroke-width="1.4"/>
+          <text x="60" y="86" font-size="14" font-weight="600" fill="var(--ink)">Upload</text>
+          <text x="60" y="105" font-size="11.5" fill="var(--muted)">POST /documents</text>
+          <g class="badge-done">
+            <circle cx="190" cy="65" r="9"/>
+            <path d="M186,65 L189,68 L195,61" />
+          </g>
+
+          <!-- done: Split into chunks -->
+          <rect x="230" y="55" width="190" height="70" rx="10" fill="var(--accent-ingest-soft)" stroke="var(--accent-ingest)" stroke-width="1.4"/>
+          <text x="250" y="86" font-size="14" font-weight="600" fill="var(--ink)">Split into chunks</text>
+          <text x="250" y="105" font-size="11.5" fill="var(--muted)">text_splitter</text>
+          <g class="badge-done">
+            <circle cx="410" cy="65" r="9"/>
+            <path d="M406,65 L409,68 L415,61" />
+          </g>
+
+          <!-- current: Embed chunks -->
+          <rect class="stage-current-box" x="450" y="55" width="180" height="70" rx="10"/>
+          <text x="470" y="83" font-size="14" font-weight="650" fill="var(--ink)">Embed chunks</text>
+          <text x="470" y="101" font-size="11.5" fill="var(--muted)">Gemini · batched</text>
+          <circle class="run-dot" cx="474" cy="115" r="3"/>
+          <text x="483" y="118" font-size="10.5" fill="var(--accent-ingest)">running</text>
+
+          <!-- pending: shared store -->
+          <g class="stage-pending">
+            <rect x="660" y="45" width="240" height="100" rx="12" fill="var(--surface)" stroke="var(--accent-ingest)" stroke-width="1.4"/>
+            <text x="682" y="86" font-size="15" font-weight="650" fill="var(--ink)">Vector index + chunks</text>
+            <text x="682" y="106" font-size="11.5" fill="var(--muted)">MongoDB Atlas</text>
+            <text x="682" y="123" font-size="11.5" fill="var(--muted)">shared by both pipelines</text>
+          </g>
+
+          <line x1="200" y1="90" x2="228" y2="90" stroke="var(--accent-ingest)" stroke-width="1.6" marker-end="url(#arrow-ingest)"/>
+          <line x1="420" y1="90" x2="448" y2="90" stroke="var(--accent-ingest)" stroke-width="1.6" marker-end="url(#arrow-ingest)"/>
+          <line class="stage-pending" x1="630" y1="90" x2="658" y2="93" stroke="var(--accent-ingest)" stroke-width="1.6" marker-end="url(#arrow-ingest)"/>
+        </g>
+
+        <!-- dashed reads-from-store connectors -->
+        <g class="stage-pending" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="4 4" fill="none">
+          <polyline points="860,145 860,243" marker-end="url(#arrow-muted)"/>
+          <polyline points="700,145 600,145 600,375 658,375" marker-end="url(#arrow-muted)"/>
+        </g>
+        <text class="stage-pending" x="866" y="200" font-size="10.5" fill="var(--muted)" font-style="italic">reads</text>
+        <text class="stage-pending" x="524" y="368" font-size="10.5" fill="var(--muted)" font-style="italic">reads</text>
+
+        <!-- Query boxes -->
+        <g class="stage-pending" font-family="-apple-system, Segoe UI, system-ui, sans-serif">
+          <rect x="40" y="302" width="170" height="60" rx="10" fill="var(--surface)" stroke="var(--accent-query)" stroke-width="1.4"/>
+          <text x="58" y="328" font-size="14" font-weight="600" fill="var(--ink)">Ask question</text>
+          <text x="58" y="346" font-size="11.5" fill="var(--muted)">Bearer auth required</text>
+
+          <rect x="250" y="302" width="210" height="60" rx="10" fill="var(--surface)" stroke="var(--accent-query)" stroke-width="1.4"/>
+          <text x="268" y="328" font-size="14" font-weight="600" fill="var(--ink)">Expand query</text>
+          <text x="268" y="346" font-size="11.5" fill="var(--muted)">LLM → 3 paraphrases</text>
+
+          <rect x="660" y="245" width="240" height="60" rx="10" fill="var(--surface)" stroke="var(--accent-query)" stroke-width="1.4"/>
+          <text x="678" y="271" font-size="14" font-weight="600" fill="var(--ink)">Vector search</text>
+          <text x="678" y="289" font-size="11.5" fill="var(--muted)">per expanded query</text>
+
+          <rect x="660" y="375" width="240" height="60" rx="10" fill="var(--surface)" stroke="var(--accent-query)" stroke-width="1.4"/>
+          <text x="678" y="401" font-size="14" font-weight="600" fill="var(--ink)">BM25 keyword search</text>
+          <text x="678" y="419" font-size="11.5" fill="var(--muted)">original question only</text>
+
+          <rect x="940" y="302" width="160" height="60" rx="10" fill="var(--surface)" stroke="var(--accent-query)" stroke-width="1.4"/>
+          <text x="958" y="328" font-size="14" font-weight="600" fill="var(--ink)">Fuse rankings</text>
+          <text x="958" y="346" font-size="11.5" fill="var(--muted)">reciprocal rank fusion</text>
+
+          <rect x="1140" y="302" width="190" height="60" rx="10" fill="var(--surface)" stroke="var(--accent-query)" stroke-width="1.4"/>
+          <text x="1158" y="328" font-size="14" font-weight="600" fill="var(--ink)">Rerank</text>
+          <text x="1158" y="346" font-size="11.5" fill="var(--muted)">Voyage AI rerank API</text>
+
+          <rect x="1370" y="302" width="210" height="60" rx="10" fill="var(--accent-query-soft)" stroke="var(--accent-query)" stroke-width="1.8"/>
+          <text x="1388" y="328" font-size="14" font-weight="650" fill="var(--ink)">Generate answer</text>
+          <text x="1388" y="346" font-size="11.5" fill="var(--muted)">LLM · streamed (SSE)</text>
+        </g>
+
+        <g class="stage-pending" stroke="var(--accent-query)" stroke-width="1.6" fill="none">
+          <line x1="210" y1="332" x2="248" y2="332" marker-end="url(#arrow-query)"/>
+          <line x1="460" y1="322" x2="658" y2="280" marker-end="url(#arrow-query)"/>
+          <line x1="460" y1="342" x2="658" y2="400" marker-end="url(#arrow-query)"/>
+          <line x1="900" y1="280" x2="938" y2="322" marker-end="url(#arrow-query)"/>
+          <line x1="900" y1="400" x2="938" y2="342" marker-end="url(#arrow-query)"/>
+          <line x1="1100" y1="332" x2="1138" y2="332" marker-end="url(#arrow-query)"/>
+          <line x1="1330" y1="332" x2="1368" y2="332" marker-end="url(#arrow-query)"/>
+          <line x1="1580" y1="332" x2="1620" y2="332" marker-end="url(#arrow-query)"/>
+        </g>
+        <text class="stage-pending" x="1590" y="322" font-size="11" fill="var(--muted)">to client</text>
+      </svg>
+    </div>
+    <figcaption>
+      Snapshot of a run in progress: upload and chunking have finished, embedding is actively running, and
+      everything downstream — writing to the store, and the whole query pipeline — hasn't been reached yet.
+    </figcaption>
+  </figure>
+
+  <div class="legend">
+    <span class="legend-item"><span class="badge-sample done"></span>Done</span>
+    <span class="legend-item"><span class="badge-sample current"></span>In progress</span>
+    <span class="legend-item"><span class="badge-sample pending"></span>Not yet reached</span>
+    <span class="legend-item"><span class="swatch dashed"></span>Reads the shared index</span>
+  </div>
+
+  <div class="traceback">
+    <h2>Step → module, for wiring this up later</h2>
+    <table>
+      <thead>
+        <tr><th>Step</th><th>Module</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="step"><span class="lane-tag ingest"></span>Upload</td><td class="mod"><code>app/services/documents.py</code> — DocumentService.create_document</td></tr>
+        <tr><td class="step"><span class="lane-tag ingest"></span>Split into chunks</td><td class="mod"><code>app/utils/text_splitter.py</code></td></tr>
+        <tr><td class="step"><span class="lane-tag ingest"></span>Embed chunks</td><td class="mod"><code>app/services/embeddings.py</code> — EmbeddingService (Gemini)</td></tr>
+        <tr><td class="step"><span class="lane-tag ingest"></span>Vector index + chunks</td><td class="mod"><code>app/services/vector_store.py</code> — MongoDB Atlas</td></tr>
+        <tr><td class="step"><span class="lane-tag query"></span>Ask question</td><td class="mod"><code>app/api/v1/qa.py</code> — get_current_user (Bearer auth)</td></tr>
+        <tr><td class="step"><span class="lane-tag query"></span>Expand query</td><td class="mod"><code>app/services/qa.py</code> — QAService.expand_query</td></tr>
+        <tr><td class="step"><span class="lane-tag query"></span>Vector + BM25 search</td><td class="mod"><code>app/services/retrieval.py</code> — retrieve(), bm25_search()</td></tr>
+        <tr><td class="step"><span class="lane-tag query"></span>Fuse rankings</td><td class="mod"><code>app/services/retrieval.py</code> — reciprocal_rank_fusion()</td></tr>
+        <tr><td class="step"><span class="lane-tag query"></span>Rerank</td><td class="mod"><code>app/services/reranker.py</code> — Voyage AI</td></tr>
+        <tr><td class="step"><span class="lane-tag query"></span>Generate answer</td><td class="mod"><code>app/services/llm.py</code>, <code>llm_factory.py</code> — streamed via qa.py ask_stream</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -51,7 +51,7 @@ class DocumentService:
         )
 
     @staticmethod
-    async def create_chunks(raw_text: str, parent_id: str):
+    def split_text(raw_text: str, parent_id: str) -> list[str]:
         chunks = split_and_process_text(raw_text)
 
         # Limit chunks to prevent excessive embedding API costs
@@ -63,9 +63,19 @@ class DocumentService:
                 f"(limit: {settings.MAX_CHUNKS_PER_DOCUMENT})"
             )
 
-        # Generate all embeddings in efficient batches
-        vectors = await EmbeddingService.generate_embeddings(chunks)
+        return chunks
 
-        # Store chunks using the configured vector store
+    @staticmethod
+    async def embed_chunks(chunks: list[str]) -> list[list[float]]:
+        return await EmbeddingService.generate_embeddings(chunks)
+
+    @staticmethod
+    async def store_chunks(chunks: list[str], vectors: list[list[float]], parent_id: str) -> None:
         vector_store = get_vector_store()
         await vector_store.add_documents(chunks, vectors, parent_id)
+
+    @classmethod
+    async def create_chunks(cls, raw_text: str, parent_id: str):
+        chunks = cls.split_text(raw_text, parent_id)
+        vectors = await cls.embed_chunks(chunks)
+        await cls.store_chunks(chunks, vectors, parent_id)
