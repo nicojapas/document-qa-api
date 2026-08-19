@@ -2,7 +2,9 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Awaitable, Callable, Optional
+
+StageCallback = Callable[[str], Awaitable[None]]
 
 from rank_bm25 import BM25Okapi
 
@@ -98,6 +100,7 @@ async def retrieve(
     mode: str = "hybrid_rerank",
     candidate_k: int = 10,
     final_k: int = 5,
+    on_stage: Optional[StageCallback] = None,
 ) -> list[RetrievedChunk]:
     """
     Retrieve the most relevant chunks for a document using one of three modes:
@@ -108,6 +111,11 @@ async def retrieve(
       Reciprocal Rank Fusion.
     - "hybrid_rerank": same as "hybrid", then a cross-encoder re-ranks a wider
       candidate pool before truncating to final_k. Used by the live API.
+
+    `on_stage`, if given, is awaited with "vector" / "bm25" / "fuse" / "rerank"
+    right after each of those steps completes — callers (e.g. the SSE stream)
+    use it to report live progress without this function needing to know
+    anything about how that progress is surfaced.
     """
     vector_store = get_vector_store()
 
@@ -115,6 +123,8 @@ async def retrieve(
     for q in queries:
         query_vector = await EmbeddingService.generate_embeddings([q], is_query=True)
         ranked_lists.append(await vector_store.search(query_vector, doc_id, top_k=candidate_k))
+    if on_stage:
+        await on_stage("vector")
 
     if mode == "vector":
         best: dict[str, RetrievedChunk] = {}
@@ -129,13 +139,21 @@ async def retrieve(
     # variants — keyword overlap is most meaningful against what the user
     # actually typed.
     bm25_results = await bm25_search(queries[0], doc_id, candidate_k)
+    if on_stage:
+        await on_stage("bm25")
+
     fused = reciprocal_rank_fusion(ranked_lists + [bm25_results])
+    if on_stage:
+        await on_stage("fuse")
 
     if mode == "hybrid":
         return fused[:final_k]
 
     if mode == "hybrid_rerank":
         pool = fused[: max(final_k * 4, 20)]
-        return await RerankerService.rerank(queries[0], pool, final_k)
+        result = await RerankerService.rerank(queries[0], pool, final_k)
+        if on_stage:
+            await on_stage("rerank")
+        return result
 
     raise ValueError(f"Unknown retrieval mode: {mode!r}")

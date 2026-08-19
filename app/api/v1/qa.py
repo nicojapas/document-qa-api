@@ -1,4 +1,4 @@
-import json
+import asyncio
 import logging
 from dataclasses import asdict
 
@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.qa import AnswerResponse, QuestionRequest, SourceChunk
 from app.services.llm import LLMService
 from app.services.qa import QAService
+from app.utils.sse import sse, sse_padding
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +48,6 @@ async def ask(request: Request, payload: QuestionRequest, _: User = Depends(get_
     return {"queries": queries, "answer": answer, "sources": _to_source_chunks(context)}
 
 
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
-
-
 @router.post("/stream")
 @limiter.limit(settings.RATE_LIMIT_QUESTIONS_PER_HOUR)
 async def ask_stream(request: Request, payload: QuestionRequest, _: User = Depends(get_current_user)):
@@ -61,33 +58,69 @@ async def ask_stream(request: Request, payload: QuestionRequest, _: User = Depen
     header — this is a POST consumed via fetch()/ReadableStream, not a native
     EventSource, since EventSource can't set custom headers).
 
-    Event sequence: "queries" -> "sources" -> one or more "token" -> "done"
-    (or a terminal "error" at any point).
+    Event sequence: "queries" -> "retrieval_stage" (one per "vector" / "bm25"
+    / "fuse" / "rerank", as retrieval actually reaches them) -> "sources" ->
+    one or more "token" -> "done" (or a terminal "error" at any point).
     """
 
     async def event_stream():
         try:
-            queries = await QAService.expand_query(payload.question)
-            yield _sse("queries", {"queries": queries})
+            yield sse_padding()
 
-            context = await QAService.get_relevant_context(queries, payload.document_id)
-            yield _sse("sources", {"sources": [asdict(c) for c in context]})
+            queries = await QAService.expand_query(payload.question)
+            yield sse("queries", {"queries": queries})
+
+            # get_relevant_context runs as a background task so its on_stage
+            # callback (invoked *inside* retrieve(), mid-call) can report
+            # progress through a queue while this generator concurrently
+            # drains it and yields each stage the moment it happens, instead
+            # of only finding out about all of them after retrieval returns.
+            stage_queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+            async def on_stage(stage: str) -> None:
+                await stage_queue.put(stage)
+
+            async def run_retrieval():
+                try:
+                    return await QAService.get_relevant_context(
+                        queries, payload.document_id, on_stage=on_stage
+                    )
+                finally:
+                    await stage_queue.put(None)
+
+            retrieval_task = asyncio.create_task(run_retrieval())
+            try:
+                while True:
+                    stage = await stage_queue.get()
+                    if stage is None:
+                        break
+                    yield sse("retrieval_stage", {"stage": stage})
+
+                context = await retrieval_task
+            finally:
+                # If the client disconnects (or an earlier step raised) while
+                # retrieval is still running, don't leave it going in the
+                # background — cancel it.
+                if not retrieval_task.done():
+                    retrieval_task.cancel()
+
+            yield sse("sources", {"sources": [asdict(c) for c in context]})
 
             if not context:
-                yield _sse("token", {"delta": NO_CONTEXT_ANSWER})
-                yield _sse("done", {"answer": NO_CONTEXT_ANSWER, "latency_ms": 20})
+                yield sse("token", {"delta": NO_CONTEXT_ANSWER})
+                yield sse("done", {"answer": NO_CONTEXT_ANSWER, "latency_ms": 20})
                 return
 
             async for delta, done_payload in LLMService.stream_answer(
                 payload.question, context, payload.model
             ):
                 if delta is not None:
-                    yield _sse("token", {"delta": delta})
+                    yield sse("token", {"delta": delta})
                 else:
-                    yield _sse("done", done_payload)
+                    yield sse("done", done_payload)
         except Exception as e:
             logger.exception("SSE stream error")
-            yield _sse("error", {"detail": str(e)})
+            yield sse("error", {"detail": str(e)})
 
     return StreamingResponse(
         event_stream(),

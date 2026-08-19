@@ -1,9 +1,10 @@
 import logging
 import time
+from typing import Optional
 from app.services.llm_factory import get_llm
 from app.core.metrics import record_llm_metrics
 from app.services.llm import _extract_token_usage
-from app.services.retrieval import RetrievedChunk, retrieve
+from app.services.retrieval import RetrievedChunk, StageCallback, retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +42,15 @@ class QAService:
         return [q.strip() for q in queries if q.strip()]
 
     @classmethod
-    async def get_relevant_context(cls, queries: list[str], doc_id: str) -> list[RetrievedChunk]:
+    async def get_relevant_context(
+        cls,
+        queries: list[str],
+        doc_id: str,
+        on_stage: Optional[StageCallback] = None,
+    ) -> list[RetrievedChunk]:
         logger.debug(f"Searching for doc_id: {doc_id}")
         logger.debug(f"Number of queries: {len(queries)}")
 
-        chunks = await retrieve(queries, doc_id, mode="hybrid_rerank")
+        chunks = await retrieve(queries, doc_id, mode="hybrid_rerank", on_stage=on_stage)
         logger.debug(f"Retrieved {len(chunks)} chunks via hybrid_rerank")
         return chunks

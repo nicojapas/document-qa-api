@@ -1,4 +1,3 @@
-import json
 import logging
 
 from fastapi import APIRouter, Depends, File, UploadFile, status, HTTPException, Request
@@ -13,14 +12,14 @@ from app.db.session import db
 from app.models.user import User
 from app.schemas.document import DocumentInDB, DocumentResponse, DocumentStatus
 from app.services.documents import DocumentService
+from app.services.embeddings import EMBEDDING_MODEL
 from app.utils.file_parser import Parser
+from app.utils.sse import sse, sse_padding
+
+VECTOR_STORE_LABELS = {"mongodb": "MongoDB Atlas", "faiss": "FAISS (local)"}
 
 
 router = APIRouter()
-
-
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 async def _check_document_limit() -> None:
@@ -155,25 +154,28 @@ async def upload_document_stream(
     async def event_stream():
         doc = None
         try:
+            yield sse_padding()
+
             doc = await DocumentService.create_document(
                 filename=filename,
                 content_type=content_type,
                 size=len(content),
             )
-            yield _sse("received", {"id": doc.id, "filename": doc.filename})
+            yield sse("received", {"id": doc.id, "filename": doc.filename})
 
             raw_text = _parse_text(extension, content)
             chunks = DocumentService.split_text(raw_text, doc.id)
-            yield _sse("split", {"chunk_count": len(chunks)})
+            yield sse("split", {"chunk_count": len(chunks)})
 
             vectors = await DocumentService.embed_chunks(chunks)
-            yield _sse("embed", {})
+            yield sse("embed", {"chunk_count": len(chunks), "model": EMBEDDING_MODEL})
 
             await DocumentService.store_chunks(chunks, vectors, doc.id)
-            yield _sse("store", {})
+            backend = VECTOR_STORE_LABELS.get(settings.VECTOR_STORE.lower(), settings.VECTOR_STORE)
+            yield sse("store", {"chunk_count": len(chunks), "backend": backend})
 
             await DocumentService.update_status(doc.id, DocumentStatus.ready)
-            yield _sse("done", {
+            yield sse("done", {
                 "id": doc.id,
                 "filename": doc.filename,
                 "status": DocumentStatus.ready.value,
@@ -183,7 +185,7 @@ async def upload_document_stream(
             logger.error(f"Failed to process document {doc.id if doc else '?'}: {e}")
             if doc is not None:
                 await DocumentService.update_status(doc.id, DocumentStatus.failed)
-            yield _sse("error", {"detail": str(e)})
+            yield sse("error", {"detail": str(e)})
 
     return StreamingResponse(
         event_stream(),
