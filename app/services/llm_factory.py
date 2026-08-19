@@ -77,7 +77,8 @@ def get_llm_for_model(model_name: str | None = None):
         return ChatOpenAI(
             model=model_id,
             api_key=settings.DEEPSEEK_API_KEY,
-            base_url=settings.DEEPSEEK_BASE_URL
+            base_url=settings.DEEPSEEK_BASE_URL,
+            stream_usage=True,
         )
     elif provider == "modal":
         return ChatOpenAI(
@@ -87,12 +88,14 @@ def get_llm_for_model(model_name: str | None = None):
             default_headers={
                 "Modal-Key": settings.MODAL_KEY,
                 "Modal-Secret": settings.MODAL_SECRET,
-            }
+            },
+            stream_usage=True,
         )
     elif provider == "openai":
         return ChatOpenAI(
             model=model_id,
             api_key=settings.OPENAI_API_KEY,
+            stream_usage=True,
         )
     else:
         raise ValueError(f"Unknown provider: '{provider}'")

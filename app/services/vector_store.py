@@ -1,12 +1,16 @@
 from abc import ABC, abstractmethod
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import faiss
 import numpy as np
 
 from app.core.config import settings
 from app.db.session import db
+
+if TYPE_CHECKING:
+    from app.services.retrieval import RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +34,8 @@ class VectorStore(ABC):
         query_embedding: list[float],
         doc_id: str,
         top_k: int = 3
-    ) -> list[str]:
-        """Search for similar chunks and return their text."""
+    ) -> list["RetrievedChunk"]:
+        """Search for similar chunks and return them with their vector_score."""
         pass
 
     @abstractmethod
@@ -76,7 +80,9 @@ class MongoDBVectorStore(VectorStore):
         query_embedding: list[float],
         doc_id: str,
         top_k: int = 3
-    ) -> list[str]:
+    ) -> list["RetrievedChunk"]:
+        from app.services.retrieval import RetrievedChunk
+
         pipeline = [
             {
                 "$vectorSearch": {
@@ -87,10 +93,27 @@ class MongoDBVectorStore(VectorStore):
                     "limit": top_k,
                     "filter": {"parent_doc_id": doc_id}
                 }
-            }
+            },
+            {
+                "$project": {
+                    "text": 1,
+                    "index": 1,
+                    "parent_doc_id": 1,
+                    "score": {"$meta": "vectorSearchScore"},
+                }
+            },
         ]
         cursor = await db.chunks.aggregate(pipeline)
-        return [doc["text"] async for doc in cursor]
+        return [
+            RetrievedChunk(
+                id=str(doc["_id"]),
+                doc_id=doc["parent_doc_id"],
+                index=doc["index"],
+                text=doc["text"],
+                vector_score=doc["score"],
+            )
+            async for doc in cursor
+        ]
 
     async def delete_document(self, doc_id: str) -> None:
         result = await db.chunks.delete_many({"parent_doc_id": doc_id})
@@ -184,7 +207,9 @@ class FAISSVectorStore(VectorStore):
         query_embedding: list[float],
         doc_id: str,
         top_k: int = 3
-    ) -> list[str]:
+    ) -> list["RetrievedChunk"]:
+        from app.services.retrieval import RetrievedChunk
+
         if self._index is None or self._index.ntotal == 0:
             logger.warning("FAISS index is empty")
             return []
@@ -192,9 +217,9 @@ class FAISSVectorStore(VectorStore):
         # Get all FAISS IDs for this document
         cursor = db.chunks.find(
             {"parent_doc_id": doc_id},
-            {"faiss_id": 1, "text": 1}
+            {"faiss_id": 1, "text": 1, "index": 1}
         )
-        doc_chunks = {doc["faiss_id"]: doc["text"] async for doc in cursor}
+        doc_chunks = {doc["faiss_id"]: doc async for doc in cursor}
 
         if not doc_chunks:
             return []
@@ -209,9 +234,18 @@ class FAISSVectorStore(VectorStore):
 
         # Filter results to only include chunks from the requested document
         results = []
-        for idx in indices[0]:
+        for score, idx in zip(distances[0], indices[0]):
             if idx in doc_chunks:
-                results.append(doc_chunks[idx])
+                meta = doc_chunks[idx]
+                results.append(
+                    RetrievedChunk(
+                        id=str(meta["_id"]),
+                        doc_id=doc_id,
+                        index=meta["index"],
+                        text=meta["text"],
+                        vector_score=float(score),
+                    )
+                )
                 if len(results) >= top_k:
                     break
 

@@ -23,6 +23,12 @@ app = FastAPI(
     version=settings.VERSION
 )
 
+
+@app.on_event("startup")
+async def on_startup():
+    from app.db.indexes import ensure_indexes
+    await ensure_indexes()
+
 # Register slowapi limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "q01",
+    "question": "In what city and year was Led Zeppelin formed?",
+    "relevant_chunk_indices": [1]
+  },
+  {
+    "id": "q02",
+    "question": "Who were the four original members of Led Zeppelin?",
+    "relevant_chunk_indices": [0, 1]
+  },
+  {
+    "id": "q03",
+    "question": "What was Led Zeppelin's debut studio album and when was it released?",
+    "relevant_chunk_indices": [2, 3]
+  },
+  {
+    "id": "q04",
+    "question": "Which song from Led Zeppelin's fourth album is described as one of the most popular and influential works of rock music?",
+    "relevant_chunk_indices": [4]
+  },
+  {
+    "id": "q05",
+    "question": "Which 1975 double album features the tracks 'Trampled Under Foot' and 'Kashmir'?",
+    "relevant_chunk_indices": [4, 5]
+  },
+  {
+    "id": "q06",
+    "question": "What was determined to be the official cause of John Bonham's death?",
+    "relevant_chunk_indices": [56]
+  },
+  {
+    "id": "q07",
+    "question": "Which bassist did Jimmy Page replace when he joined the Yardbirds in 1966?",
+    "relevant_chunk_indices": [8]
+  },
+  {
+    "id": "q08",
+    "question": "Who suggested Robert Plant to Jimmy Page as a candidate for lead singer?",
+    "relevant_chunk_indices": [13, 14]
+  },
+  {
+    "id": "q09",
+    "question": "Where and when did the four future members of Led Zeppelin play together for the first time?",
+    "relevant_chunk_indices": [15]
+  },
+  {
+    "id": "q10",
+    "question": "According to one account, how did the band arrive at the name 'Led Zeppelin'?",
+    "relevant_chunk_indices": [18]
+  },
+  {
+    "id": "q11",
+    "question": "How large was the advance Peter Grant secured from Atlantic Records in November 1968?",
+    "relevant_chunk_indices": [19]
+  },
+  {
+    "id": "q12",
+    "question": "What made the album cover of Houses of the Holy controversial?",
+    "relevant_chunk_indices": [37]
+  },
+  {
+    "id": "q13",
+    "question": "What record label did Led Zeppelin launch in 1974?",
+    "relevant_chunk_indices": [39]
+  },
+  {
+    "id": "q14",
+    "question": "What happened to Robert Plant and his wife in August 1975 while on holiday in Rhodes, Greece?",
+    "relevant_chunk_indices": [44]
+  },
+  {
+    "id": "q15",
+    "question": "What tragedy caused Led Zeppelin to cancel their 1977 North American tour?",
+    "relevant_chunk_indices": [51]
+  },
+  {
+    "id": "q16",
+    "question": "At what music festival did Led Zeppelin play to a crowd of about 104,000 people in August 1979?",
+    "relevant_chunk_indices": [53]
+  },
+  {
+    "id": "q17",
+    "question": "At what event did Led Zeppelin reunite with Jason Bonham on drums in December 2007?",
+    "relevant_chunk_indices": [70]
+  },
+  {
+    "id": "q18",
+    "question": "What Led Zeppelin documentary premiered in IMAX in February 2025?",
+    "relevant_chunk_indices": [79]
+  },
+  {
+    "id": "q19",
+    "question": "Which American blues artists particularly influenced Led Zeppelin's first two albums?",
+    "relevant_chunk_indices": [80]
+  },
+  {
+    "id": "q20",
+    "question": "Which literary work inspired the pastoral fantasy elements in Robert Plant's lyrics?",
+    "relevant_chunk_indices": [87]
+  }
+]
