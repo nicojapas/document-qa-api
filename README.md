@@ -111,7 +111,7 @@ Results are written to `eval/results/report.md` (per-question hit/miss table + s
 | Database | MongoDB Atlas |
 | Vector Store | MongoDB Atlas Vector Search, FAISS |
 | Keyword Search | BM25 (`rank_bm25`) |
-| Re-ranking | Cross-encoder (`sentence-transformers`) |
+| Re-ranking | Cross-encoder (Voyage AI `rerank-2.5`, hosted) |
 | Fusion | Reciprocal Rank Fusion |
 | LLM Providers | Google Gemini, DeepSeek, OpenAI, Modal (self-hosted) |
 | Self-hosted LLM | vLLM + Qwen/Qwen3-1.7B on Modal |

@@ -136,6 +136,6 @@ async def retrieve(
 
     if mode == "hybrid_rerank":
         pool = fused[: max(final_k * 4, 20)]
-        return await asyncio.to_thread(RerankerService.rerank, queries[0], pool, final_k)
+        return await RerankerService.rerank(queries[0], pool, final_k)
 
     raise ValueError(f"Unknown retrieval mode: {mode!r}")

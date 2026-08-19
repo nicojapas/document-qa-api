@@ -1,54 +1,53 @@
 import logging
 from typing import TYPE_CHECKING
 
+import httpx
+
+from app.core.config import settings
+
 if TYPE_CHECKING:
     from app.services.retrieval import RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
-RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank"
+RERANKER_MODEL = "rerank-2.5"
 
 
 class RerankerService:
     """
-    Cross-encoder re-ranker, lazily loaded on first use.
+    Cross-encoder re-ranking via the hosted Voyage AI rerank API.
 
-    Lazy loading keeps app startup and /health fast, and avoids pulling the
-    model into memory for deployments that never trigger a rerank (e.g. local
-    dev runs that only exercise vector/hybrid retrieval).
+    Runs as an HTTP call rather than in-process: loading sentence-transformers
+    + torch locally was pushing the Render instance past its memory limit and
+    triggering OOM restarts.
     """
 
-    _model = None
-
     @classmethod
-    def _ensure_model(cls):
-        if cls._model is None:
-            from sentence_transformers import CrossEncoder
-
-            logger.info(f"Loading cross-encoder reranker: {RERANKER_MODEL}")
-            cls._model = CrossEncoder(RERANKER_MODEL)
-        return cls._model
-
-    @classmethod
-    def rerank(
+    async def rerank(
         cls, query: str, chunks: list["RetrievedChunk"], top_k: int
     ) -> list["RetrievedChunk"]:
-        """
-        Score each chunk against the query with the cross-encoder and return
-        the top_k, sorted by rerank_score descending.
-
-        This is a synchronous, CPU-bound call — callers must run it via
-        asyncio.to_thread to avoid blocking the event loop.
-        """
         if not chunks:
             return []
 
-        model = cls._ensure_model()
-        pairs = [(query, chunk.text) for chunk in chunks]
-        scores = model.predict(pairs)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                VOYAGE_RERANK_URL,
+                headers={"Authorization": f"Bearer {settings.VOYAGE_API_KEY}"},
+                json={
+                    "query": query,
+                    "documents": [chunk.text for chunk in chunks],
+                    "model": RERANKER_MODEL,
+                    "top_k": top_k,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        for chunk, score in zip(chunks, scores):
-            chunk.rerank_score = float(score)
+        ranked: list["RetrievedChunk"] = []
+        for result in data["data"]:
+            chunk = chunks[result["index"]]
+            chunk.rerank_score = result["relevance_score"]
+            ranked.append(chunk)
 
-        chunks.sort(key=lambda c: c.rerank_score, reverse=True)
-        return chunks[:top_k]
+        return ranked
