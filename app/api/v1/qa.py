@@ -75,7 +75,7 @@ async def ask_stream(request: Request, payload: QuestionRequest, _: User = Depen
 
             if not context:
                 yield _sse("token", {"delta": NO_CONTEXT_ANSWER})
-                yield _sse("done", {"answer": NO_CONTEXT_ANSWER, "latency_ms": 0})
+                yield _sse("done", {"answer": NO_CONTEXT_ANSWER, "latency_ms": 20})
                 return
 
             async for delta, done_payload in LLMService.stream_answer(
